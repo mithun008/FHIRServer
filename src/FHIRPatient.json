@@ -1,0 +1,619 @@
+{
+    "swagger": "2.0",
+    "host": "fhir3.healthintersections.com.au/open",
+    "basePath": "/",
+    "schemes": [
+        "http"
+    ],
+    "paths": {
+        "/Patient/{id}/_tags": {
+            "get": {
+                "description": "get a list of tags used for the nominated resource. This duplicates the HTTP header entries\n",
+                "operationId": "GET /Patient/{id}/_tags",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            },
+            "post": {
+                "description": "Affix tags in the list to the nominated resource\n",
+                "operationId": "POST /Patient/{id}/_tags",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Succesfully affix tags\n"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/_history/{vid}/_tags/_delete": {
+            "post": {
+                "description": "Removes all tags in the provided list of tags for the nominated version of the resource\n",
+                "operationId": "POST /Patient/{id}/_history/{vid}/_tags/_delete",
+                "consumes": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "vid",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Successful deletion of tags"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/_tags/_delete": {
+            "post": {
+                "description": "Removes all tags in the provided list of tags for the nominated resource\n",
+                "operationId": "POST /Patient/{id}/_tags/_delete",
+                "consumes": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Status 204"
+                    }
+                }
+            }
+        },
+        "/metadata": {
+            "get": {
+                "description": "Retrieve resource\n",
+                "operationId": "GET /metadata",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            }
+        },
+        "/Patient/$meta": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/$meta",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved resource(s)\n"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/$validate": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/{id}/$validate",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/_history/{vid}": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/{id}/_history/{vid}",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "vid",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/{id}",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    },
+                    "404": {
+                        "description": "Tried to get an unknown resource\n"
+                    },
+                    "410": {
+                        "description": "Tried to get a deleted resource\n"
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail.\n"
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing instance\n",
+                "operationId": "PUT /Patient/{id}",
+                "consumes": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully updated the instance \n"
+                    },
+                    "201": {
+                        "description": "Succesfully created the instance \n"
+                    },
+                    "400": {
+                        "description": "Bad Request - Resource cound not be parsed or failed basic FHIR validation rules\n"
+                    },
+                    "404": {
+                        "description": "Not Found - resource type not support, or not a FHIR validation rules\n"
+                    },
+                    "405": {
+                        "description": "Method Not allowed - the resource did not exist prior to the update, and the server does not allow client defined ids\n"
+                    },
+                    "409": {
+                        "description": "Version conflict management\n"
+                    },
+                    "412": {
+                        "description": "Version conflict management\n"
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail.\n"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete resource\n",
+                "operationId": "DELETE /Patient/{id}",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Succesfully deleted resource\n"
+                    },
+                    "404": {
+                        "description": "Not Found - resource was not found\n"
+                    },
+                    "405": {
+                        "description": "Method Not allowed - delete is not allowed\n"
+                    }
+                }
+            }
+        },
+        "/Patient/_search": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/_search",
+                "produces": [
+                    "application/atom+xml",
+                    "application/json+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/_history/{vid}/_tags": {
+            "get": {
+                "description": "get a list of tags used for the nominated version of the resource.  This duplicates the HTTP header entries.\n",
+                "operationId": "GET /Patient/{id}/_history/{vid}/_tags",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "vid",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            },
+            "post": {
+                "description": "Affix tags in the list to the nominated verion of the resource\n",
+                "operationId": "POST /Patient/{id}/_history/{vid}/_tags",
+                "consumes": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "vid",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Succesfully affix tags\n"
+                    }
+                }
+            }
+        },
+        "/_tags": {
+            "get": {
+                "description": "get a list of all tags\n",
+                "operationId": "GET /_tags",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            }
+        },
+        "/": {
+            "get": {
+                "description": "Retrieve resource\n",
+                "operationId": "GET /",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new resource\n",
+                "operationId": "POST /",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Succesfully created a new resource\n"
+                    }
+                }
+            }
+        },
+        "/Patient/_validate/{id}": {
+            "post": {
+                "description": "Create a new resource\n",
+                "operationId": "POST /Patient/_validate/{id}",
+                "consumes": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Validates a type\n"
+                    }
+                }
+            }
+        },
+        "/Patient": {
+            "get": {
+                "description": "Get Patient",
+                "operationId": "GET /Patient",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new type\n",
+                "operationId": "POST /Patient",
+                "consumes": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Succesfully created a new type\n"
+                    },
+                    "400": {
+                        "description": "Bad Request - Resource cound not be parsed or failed basic FHIR validation rules\n"
+                    },
+                    "404": {
+                        "description": "Not Found - resource type not support, or not a FHIR validation rules\n"
+                    }
+                }
+            }
+        },
+        "/Patient/_tags": {
+            "get": {
+                "description": "get a list of tags used for the nominated resource type\n",
+                "operationId": "GET /Patient/_tags",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            }
+        },
+        "/$meta": {
+            "get": {
+                "description": "",
+                "operationId": "GET /$meta",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved resource(s)\n"
+                    }
+                }
+            }
+        },
+        "/_history": {
+            "get": {
+                "description": "Whole System History\n",
+                "operationId": "GET /_history",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succesfully retrieved resource\n"
+                    }
+                }
+            }
+        },
+        "/Patient/$validate": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/$validate",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/$everything": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/{id}/$everything",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        },
+        "/Patient/_history": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/_history",
+                "produces": [
+                    "application/atom+xml",
+                    "application/json+fhir"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        },
+        "/Patient/{id}/_history": {
+            "get": {
+                "description": "",
+                "operationId": "GET /Patient/{id}/_history",
+                "produces": [
+                    "application/json+fhir",
+                    "application/xml+fhir"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "id",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status 200"
+                    }
+                }
+            }
+        }
+    },
+    "info": {
+        "title": "FHIR Patient",
+        "description": "Demographics and other administrative information about an individual or animal receiving care or other health-related services. For more information: https://www.hl7.org/fhir/patient.html",
+        "version": "2"
+    },
+     "x-axway": {
+        "corsEnabled": true,
+        "basePaths": [
+            ""
+        ],
+        "serviceType": "rest",
+        "deprecated": false,
+        "tags" : {
+			"Group" : [ "FHIR", " Identification", " Individuals" ]
+		}
+    }
+}
