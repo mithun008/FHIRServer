@@ -163,6 +163,7 @@ public class PatientResource {
 		String json = item.toJSON();
 
 		
+		
 		log.debug("The json string retrieved : " + json);
 
 		return Response.status(200).entity(json).build();
