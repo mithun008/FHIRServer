@@ -153,7 +153,7 @@ public class PatientResource {
 		} else {
 			log.debug("The incoming media type is null.");
 		}
-		log.debug("The id received : " + id);
+		log.debug("The id received from API Gateway: " + id);
 
 		AmazonDynamoDB client = LambdaHandler.getDDBClient();
 		DynamoDB db = new DynamoDB(client);
