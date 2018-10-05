@@ -2,7 +2,9 @@ package com.amazonaws.lab.resources;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,17 +43,23 @@ import org.hl7.fhir.dstu3.model.OperationOutcome.IssueSeverity;
 import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.OperationOutcome.OperationOutcomeIssueComponent;
 import org.hl7.fhir.dstu3.model.Patient;
+import org.joda.time.LocalDate;
 
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.document.AttributeUpdate;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.dynamodbv2.document.Index;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.ItemCollection;
 import com.amazonaws.services.dynamodbv2.document.KeyAttribute;
+import com.amazonaws.services.dynamodbv2.document.QueryOutcome;
+import com.amazonaws.services.dynamodbv2.document.RangeKeyCondition;
 import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
 import com.amazonaws.services.dynamodbv2.document.Table;
+import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
+import com.amazonaws.services.dynamodbv2.document.utils.NameMap;
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.s3.AmazonS3;
@@ -63,7 +71,7 @@ import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
 import io.swagger.annotations.ApiParam;
 
-@Path("/Patient")
+@Path("/patient")
 
 @io.swagger.annotations.Api(description = "the Patient API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
@@ -115,13 +123,74 @@ public class PatientResource {
 	}
 
 	@GET
-
+	
 	@Produces({ "application/json+fhir", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Get Patient", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatient(@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatient(securityContext);
+	public Response gETPatient(@Context SecurityContext securityContext,
+			@DefaultValue("F") @QueryParam("gender") String gender,
+			@DefaultValue("30") @QueryParam("date-range-days") String dateRangeDays) throws NotFoundException {
+		
+		
+		Bundle bundle = new Bundle();
+		
+		log.debug("Entering patient search for last "+dateRangeDays+" days ");
+
+		bundle.setType(BundleType.SEARCHSET);
+		bundle.setId(UUID.randomUUID().toString());
+		
+		BundleLinkComponent bunLinkComp = new BundleLinkComponent();
+		bunLinkComp.setRelation("self");
+		//bunLinkComp.setUrl("http://hapi.fhir.org/baseDstu3/Patient?_pretty=true&address-country=US");
+		
+		ArrayList<BundleLinkComponent> bunLinkList = new ArrayList<>();
+		bunLinkList.add(bunLinkComp);
+		
+		bundle.setLink(bunLinkList);
+		
+		ArrayList<BundleEntryComponent> entryList = new ArrayList<>();
+		
+		DynamoDB dynamoDB = LambdaHandler.getDynamoDB();
+		Table table = dynamoDB.getTable(PATIENT_TABLE);
+		
+		Index index = table.getIndex("gender-createdDate-index");
+		
+		LocalDate now = LocalDate.now();
+		LocalDate pastDate = now.minusDays( Integer.parseInt(dateRangeDays) );
+		RangeKeyCondition rangeKeyCond = new RangeKeyCondition("createdDate").ge(pastDate.toString());
+		KeyAttribute key = new KeyAttribute("gender", gender.equals("F")?"female":"male");
+		log.debug("The key attribute value "+gender);
+		
+		
+		log.debug("The last date : "+pastDate);
+		QuerySpec spec = new QuerySpec()
+			.withHashKey(key)
+		    //.withKeyConditionExpression("gender = :v_gender")
+		    .withRangeKeyCondition(rangeKeyCond);
+
+		        
+		int resultCount = 0;
+		ItemCollection<QueryOutcome> items = index.query(spec);
+		Iterator<Item> iter = items.iterator(); 
+		while (iter.hasNext()) {
+			BundleEntryComponent comp = new BundleEntryComponent();
+			Item item = iter.next();
+			String obsJSON = item.toJSON();
+			Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+			String obsId = item.getString("id");
+		    log.debug("The patient id : "+item.getString("id"));
+		    
+			comp.setResource(patient);
+			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
+			
+			entryList.add(comp);
+			resultCount++;
+		}
+		bundle.setEntry(entryList);
+		bundle.setTotal(resultCount);
+
+		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
 	}
 
 
@@ -140,52 +209,49 @@ public class PatientResource {
 			@Context SecurityContext securityContext) throws NotFoundException {
 		
 		Bundle bundle = new Bundle();
-		try {
-			log.debug("Entering patient search with query param :"+gender + "-"+ birthDate);
-			Table table = LambdaHandler.getDynamoDB().getTable(PATIENT_TABLE);
-			ScanSpec spec = new ScanSpec()
-					.withFilterExpression("gender = :v_gender and birthDate = :v_birthDate and address[0].city = :v_addressCity")
-					.withValueMap(new ValueMap()
-							.withString(":v_gender", gender)
-							.withString(":v_birthDate", birthDate)
-							.withString(":v_addressCity", addressCity));
+	
+		log.debug("Entering patient search with query param :"+gender + "-"+ birthDate);
+		Table table = LambdaHandler.getDynamoDB().getTable(PATIENT_TABLE);
+		ScanSpec spec = new ScanSpec()
+				.withFilterExpression("gender = :v_gender and birthDate = :v_birthDate and address[0].city = :v_addressCity")
+				.withValueMap(new ValueMap()
+						.withString(":v_gender", gender)
+						.withString(":v_birthDate", birthDate)
+						.withString(":v_addressCity", addressCity));
 
-			
-			ItemCollection<ScanOutcome> items = table.scan(spec);
-			Iterator<Item> iter = items.iterator();
-			
-			log.debug("Iter received : "+iter.hasNext());
-			
-			
-			bundle.setType(BundleType.SEARCHSET);
-			bundle.setId(UUID.randomUUID().toString());
-			
-			BundleLinkComponent bunLinkComp = new BundleLinkComponent();
-			bunLinkComp.setRelation("self");
-			bunLinkComp.setUrl("http://hapi.fhir.org/baseDstu3/Patient?_pretty=true&address-country=US");
-			
-			ArrayList<BundleLinkComponent> bunLinkList = new ArrayList<>();
-			bunLinkList.add(bunLinkComp);
-			
-			bundle.setLink(bunLinkList);
-			
-			ArrayList<BundleEntryComponent> entryList = new ArrayList<>();
-			int resultCount = 0;
-			
-			while(iter.hasNext()) {
-				BundleEntryComponent comp = new BundleEntryComponent();
-				Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class,iter.next().toJSONPretty());
-				comp.setResource(patient);
-				comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+patient.getId());
-				log.debug("The item data "+ patient.getId());
-				entryList.add(comp);
-				resultCount++;
-			}
-			bundle.setEntry(entryList);
-			bundle.setTotal(resultCount);
-		}catch(Exception exp) {
-			exp.printStackTrace();
+		
+		ItemCollection<ScanOutcome> items = table.scan(spec);
+		Iterator<Item> iter = items.iterator();
+		
+		log.debug("Iter received : "+iter.hasNext());
+		
+		
+		bundle.setType(BundleType.SEARCHSET);
+		bundle.setId(UUID.randomUUID().toString());
+		
+		BundleLinkComponent bunLinkComp = new BundleLinkComponent();
+		bunLinkComp.setRelation("self");
+		bunLinkComp.setUrl("http://hapi.fhir.org/baseDstu3/Patient?_pretty=true&address-country=US");
+		
+		ArrayList<BundleLinkComponent> bunLinkList = new ArrayList<>();
+		bunLinkList.add(bunLinkComp);
+		
+		bundle.setLink(bunLinkList);
+		
+		ArrayList<BundleEntryComponent> entryList = new ArrayList<>();
+		int resultCount = 0;
+		
+		while(iter.hasNext()) {
+			BundleEntryComponent comp = new BundleEntryComponent();
+			Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class,iter.next().toJSONPretty());
+			comp.setResource(patient);
+			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+patient.getId());
+			log.debug("The item data "+ patient.getId());
+			entryList.add(comp);
+			resultCount++;
 		}
+		bundle.setEntry(entryList);
+		bundle.setTotal(resultCount);
 
 		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
 	}
@@ -399,8 +465,6 @@ public class PatientResource {
 
 		DynamoDB dynamodb = new DynamoDB(LambdaHandler.getDDBClient());
 		Table myTable = dynamodb.getTable(PATIENT_TABLE);
-		
-		
 
 		// Make sure your object includes the hash or hash/range key
 		String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(patient);
@@ -409,6 +473,11 @@ public class PatientResource {
 
 		// Convert the JSON into an object
 		Item myItem = Item.fromJSON(myJsonString);
+		
+		//put a created date
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		myItem.withString("createdDate", sdf.format(new Date()));
+		
 
 		// Insert the Object
 		myTable.putItem(myItem);

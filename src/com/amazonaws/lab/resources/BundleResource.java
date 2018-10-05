@@ -65,7 +65,7 @@ import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
 import io.swagger.annotations.ApiParam;
 
-@Path("/Bundle")
+@Path("/bundle")
 
 @io.swagger.annotations.Api(description = "the Bundle API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")

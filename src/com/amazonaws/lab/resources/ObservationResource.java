@@ -1,5 +1,6 @@
 package com.amazonaws.lab.resources;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.UUID;
 
@@ -14,7 +15,11 @@ import javax.ws.rs.core.SecurityContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Observation;
+import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.dstu3.model.Bundle.BundleLinkComponent;
+import org.hl7.fhir.dstu3.model.Bundle.BundleType;
 
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
@@ -27,7 +32,7 @@ import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.document.utils.NameMap;
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
-@Path("/Observation")
+@Path("/observation")
 
 @io.swagger.annotations.Api(description = "the Bundle API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
@@ -59,6 +64,22 @@ public class ObservationResource {
 	public Response gETObservation(
 			@DefaultValue("") @QueryParam("patient-ref-id") String patientRefId,
 			@Context SecurityContext securityContext) throws NotFoundException {
+		Bundle bundle = new Bundle();
+
+		bundle.setType(BundleType.SEARCHSET);
+		bundle.setId(UUID.randomUUID().toString());
+		
+		BundleLinkComponent bunLinkComp = new BundleLinkComponent();
+		bunLinkComp.setRelation("self");
+		//bunLinkComp.setUrl("http://hapi.fhir.org/baseDstu3/Patient?_pretty=true&address-country=US");
+		
+		ArrayList<BundleLinkComponent> bunLinkList = new ArrayList<>();
+		bunLinkList.add(bunLinkComp);
+		
+		bundle.setLink(bunLinkList);
+		
+		ArrayList<BundleEntryComponent> entryList = new ArrayList<>();
+		
 		DynamoDB dynamoDB = LambdaHandler.getDynamoDB();
 		Table table = dynamoDB.getTable(OBSERVATION_TABLE);
 		
@@ -71,14 +92,27 @@ public class ObservationResource {
 		    .withValueMap(new ValueMap()
 		        .withString(":v_patRef","urn:uuid:"+patientRefId));
 		        
-
+		int resultCount = 0;
 		ItemCollection<QueryOutcome> items = index.query(spec);
 		Iterator<Item> iter = items.iterator(); 
 		while (iter.hasNext()) {
-		    log.debug(iter.next().toJSONPretty());
+			BundleEntryComponent comp = new BundleEntryComponent();
+			Item item = iter.next();
+			String obsJSON = item.toJSON();
+			Observation obs = LambdaHandler.getJsonParser().parseResource(Observation.class, obsJSON);
+			String obsId = item.getString("id");
+		    log.debug("The observation id : "+item.getString("id"));
+		    
+			comp.setResource(obs);
+			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Observation/"+obsId);
+			
+			entryList.add(comp);
+			resultCount++;
 		}
+		bundle.setEntry(entryList);
+		bundle.setTotal(resultCount);
 		
-		return Response.status(200).entity("Test response").build();
+		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
 	}
 
 	/**
