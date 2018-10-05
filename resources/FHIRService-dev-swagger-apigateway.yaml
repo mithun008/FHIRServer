@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Stage:
+    Type: String
+    AllowedValues:
+      - beta
+      - gamma
+      - prod
+    Default: beta
+    Description: Stage that can be added to resource names
+  LambdaAlias:
+    Type: String
+    Default: live
+    Description: The alias used for live production traffic to the Lambda function.    
+
+Globals:
+  Api:
+    EndpointConfiguration: REGIONAL
+
+Resources:
+  FHIRPatientTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "user_id"
+          AttributeType: "S"
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "user_id"
+          KeyType: "HASH"
+        - AttributeName: "id"
+          KeyType: "RANGE"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AutoVerifiedAttributes: 
+        - email
+      UserPoolName: !Ref AWS::StackName
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+        - AttributeDataType: String
+          Name: cc_confirmed
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${AWS::StackName}-UserPool'
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows: 
+        - ADMIN_NO_SRP_AUTH
+  
+
+  FHIRPatientServiceApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: 'Prod'
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          title: !Ref AWS::StackName
+        schemes:
+        - "https"
+        securityDefinitions:
+          cognitoUserPool:
+            type: apiKey
+            name: "Authorization"
+            in: header
+            x-amazon-apigateway-authtype: cognito_user_pools
+            x-amazon-apigateway-authorizer:
+              type: cognito_user_pools
+              providerARNs:
+                - !GetAtt UserPool.Arn
+        paths:
+          /Patient:
+            post:
+              consumes:
+              - "application/json+fhir"
+              produces:
+              - "application/json+fhir"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+              - cognitoUserPool: []                    
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+                
+          /Patient/{proxy+}:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              parameters:
+              - name: "proxy"
+                in: "path"
+                required: true
+                type: "string"
+              responses: {}
+                
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                cacheNamespace: "s32dgy"
+                cacheKeyParameters:
+                - "method.request.path.proxy"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+        definitions:
+          Empty:
+            type: "object"
+            title: "Empty Schema"
+        
+
+  FHIRFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: com.amazonaws.lab.LambdaHandler::handleRequest
+      CodeUri: ../target/FHIRServer-0.0.1-SNAPSHOT.jar
+      AutoPublishAlias: !Ref LambdaAlias
+      Runtime: java8
+      MemorySize: 512
+      Timeout: 20
+
+      Policies:
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query 
+              - dynamodb:Scan
+            Resource:
+              - !Sub 
+                - 'arn:aws:dynamodb:*:*:table/${Table}'
+                - { Table: !Ref FHIRPatientTable }
+          - Effect: Allow
+            Action:
+              - logs:*
+            Resource:
+              - "*"
+           
+      Environment:
+        Variables:
+          FHIR_PATIENT_TABLE: !Ref FHIRPatientTable
+      Events:
+        ProxyOrdersResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRPatientServiceApi
+            Path: /Patient
+            Method: ANY
+        ProxyOrderGreedyResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRPatientServiceApi
+            Path: /Patient/{proxy+}
+            Method: ANY
+
+
+Outputs:
+  ApiUrl:
+    Description: URL for application
+    Value: !Sub 'https://${FHIRPatientServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
