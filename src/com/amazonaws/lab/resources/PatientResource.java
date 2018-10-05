@@ -1,7 +1,18 @@
 package com.amazonaws.lab.resources;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.UUID;
+
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -9,21 +20,41 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hl7.fhir.dstu3.model.Bundle;
+import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.dstu3.model.Bundle.BundleLinkComponent;
+import org.hl7.fhir.dstu3.model.Bundle.BundleType;
+import org.hl7.fhir.dstu3.model.Enumerations.ResourceType;
+import org.hl7.fhir.dstu3.model.HumanName;
+import org.hl7.fhir.dstu3.model.IdType;
+import org.hl7.fhir.dstu3.model.Narrative;
+import org.hl7.fhir.dstu3.model.Narrative.NarrativeStatus;
+import org.hl7.fhir.dstu3.model.OperationOutcome;
+import org.hl7.fhir.dstu3.model.OperationOutcome.IssueSeverity;
+import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
+import org.hl7.fhir.dstu3.model.OperationOutcome.OperationOutcomeIssueComponent;
 import org.hl7.fhir.dstu3.model.Patient;
-
 
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.document.AttributeUpdate;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.ItemCollection;
+import com.amazonaws.services.dynamodbv2.document.KeyAttribute;
+import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
 import com.amazonaws.services.dynamodbv2.document.Table;
+import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
+import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.s3.AmazonS3;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.StrictErrorHandler;
@@ -40,19 +71,20 @@ public class PatientResource {
 	@Context
 	SecurityContext securityContext;
 
-	private FhirContext fhirContext;
-
 	private final PatientApiService delegate;
 
 	static final Logger log = LogManager.getLogger(PatientResource.class);
 
 	private static final String PATIENT_TABLE = System.getenv("PATIENT_TABLE");
+	private static final String FHIR_META_TABLE = System.getenv("FHIR_RESOURCE_META_TABLE");
+	private static final String FHIR_INSTANCE_BUCKET = System.getenv("FHIR_INSTANCE_BUCKET");
+	private static final String VALIDATE_FHIR_RESOURCE = System.getenv("VALIDATE_FHIR_RESOURCE");
+	//private static final String PATIENT_NAME_TABLE = System.getenv("PATIENT_NAME_TABLE");
+	//private static final String PATIENT_CONTACT_INFO_TABLE = System.getenv("PATIENT_CONTACT_INFO_TABLE");
+	
 
 	public PatientResource() {
-		// Map<String, AttributeValue> scanExpression = new HashMap();
-		// scanExpression.put(":user", new
-		// AttributeValue().withS(securityContext.getUserPrincipal().getName()));
-
+	
 		PatientApiService delegate = null;
 		/**
 		 * The original implementation relied on using reflection to load the delegation
@@ -63,7 +95,7 @@ public class PatientResource {
 		delegate = new PatientApiServiceImpl();
 
 		this.delegate = delegate;
-		this.fhirContext = FhirContext.forDstu3();
+		
 	}
 
 	@DELETE
@@ -92,26 +124,70 @@ public class PatientResource {
 		return delegate.gETPatient(securityContext);
 	}
 
-	@GET
-	@Path("/_history")
 
-	@Produces({ "application/atom+xml", "application/json+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientHistory(@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientHistory(securityContext);
-	}
 
 	@GET
 	@Path("/_search")
 
-	@Produces({ "application/atom+xml", "application/json+fhir" })
+	@Produces({ "application/json+fhir", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientSearch(@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientSearch(securityContext);
+	public Response gETPatientSearch(
+			@DefaultValue("") @QueryParam("gender") String gender,
+			@DefaultValue("") @QueryParam("birthDate") String birthDate,
+			@DefaultValue("") @QueryParam("address-city") String addressCity,
+			@Context SecurityContext securityContext) throws NotFoundException {
+		
+		Bundle bundle = new Bundle();
+		try {
+			log.debug("Entering patient search with query param :"+gender + "-"+ birthDate);
+			Table table = LambdaHandler.getDynamoDB().getTable(PATIENT_TABLE);
+			ScanSpec spec = new ScanSpec()
+					.withFilterExpression("gender = :v_gender and birthDate = :v_birthDate and address[0].city = :v_addressCity")
+					.withValueMap(new ValueMap()
+							.withString(":v_gender", gender)
+							.withString(":v_birthDate", birthDate)
+							.withString(":v_addressCity", addressCity));
+
+			
+			ItemCollection<ScanOutcome> items = table.scan(spec);
+			Iterator<Item> iter = items.iterator();
+			
+			log.debug("Iter received : "+iter.hasNext());
+			
+			
+			bundle.setType(BundleType.SEARCHSET);
+			bundle.setId(UUID.randomUUID().toString());
+			
+			BundleLinkComponent bunLinkComp = new BundleLinkComponent();
+			bunLinkComp.setRelation("self");
+			bunLinkComp.setUrl("http://hapi.fhir.org/baseDstu3/Patient?_pretty=true&address-country=US");
+			
+			ArrayList<BundleLinkComponent> bunLinkList = new ArrayList<>();
+			bunLinkList.add(bunLinkComp);
+			
+			bundle.setLink(bunLinkList);
+			
+			ArrayList<BundleEntryComponent> entryList = new ArrayList<>();
+			int resultCount = 0;
+			
+			while(iter.hasNext()) {
+				BundleEntryComponent comp = new BundleEntryComponent();
+				Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class,iter.next().toJSONPretty());
+				comp.setResource(patient);
+				comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+patient.getId());
+				log.debug("The item data "+ patient.getId());
+				entryList.add(comp);
+				resultCount++;
+			}
+			bundle.setEntry(entryList);
+			bundle.setTotal(resultCount);
+		}catch(Exception exp) {
+			exp.printStackTrace();
+		}
+
+		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
 	}
 
 	@GET
@@ -144,69 +220,40 @@ public class PatientResource {
 
 		// System.out.println("Method call invoked..");
 		log.debug("Method call invoked..");
+		
+		String respMsg = "";
+		int respCode=200;
+		try {
 
-		MediaType mediaType;
-		if (accepted != null) {
-			mediaType = MediaType.valueOf(accepted);
-			log.debug("The incoming media type + sub type is ----- " + mediaType.getType() + "-"
-					+ mediaType.getSubtype());
-		} else {
-			log.debug("The incoming media type is null.");
+			log.debug("The id received from API Gateway : " + id);
+	
+			AmazonDynamoDB client = LambdaHandler.getDDBClient();
+			DynamoDB db = new DynamoDB(client);
+			Table table = db.getTable(PATIENT_TABLE);
+	
+			Item item = table.getItem("id", id);
+			
+			if(item != null) {
+				respMsg = item.toJSON();
+				respCode = 200;
+			}else {
+				respCode = 404;
+				respMsg = "Tried to get an unknown resource";
+			}
+			
+			
+		}catch(Exception exp) {
+			exp.printStackTrace();
 		}
-		log.debug("The id received from API Gateway: " + id);
-
-		AmazonDynamoDB client = LambdaHandler.getDDBClient();
-		DynamoDB db = new DynamoDB(client);
-		Table table = db.getTable(PATIENT_TABLE);
-
-		Item item = table.getItem("id", id);
-		String json = item.toJSON();
-
 		
 		
-		log.debug("The json string retrieved : " + json);
+		log.debug("The json string retrieved : " + respMsg);
 
-		return Response.status(200).entity(json).build();
+		return Response.status(respCode).entity(respMsg).build();
 
 	}
 
-	@GET
-	@Path("/{id}/_history")
 
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientidHistory(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientidHistory(id, securityContext);
-	}
-
-	@GET
-	@Path("/{id}/_history/{vid}")
-
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientidHistoryvid(@ApiParam(value = "", required = true) @PathParam("vid") String vid,
-			@ApiParam(value = "", required = true) @PathParam("id") String id, @Context SecurityContext securityContext)
-			throws NotFoundException {
-		return delegate.gETPatientidHistoryvid(vid, id, securityContext);
-	}
-
-	@GET
-	@Path("/{id}/_history/{vid}/_tags")
-
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "get a list of tags used for the nominated version of the resource.  This duplicates the HTTP header entries. ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Succesfully retrieved resource ", response = Void.class) })
-	public Response gETPatientidHistoryvidTags(@ApiParam(value = "", required = true) @PathParam("vid") String vid,
-			@ApiParam(value = "", required = true) @PathParam("id") String id, @Context SecurityContext securityContext)
-			throws NotFoundException {
-		return delegate.gETPatientidHistoryvidTags(vid, id, securityContext);
-	}
 
 	@GET
 	@Path("/{id}/_tags")
@@ -220,29 +267,7 @@ public class PatientResource {
 		return delegate.gETPatientidTags(id, securityContext);
 	}
 
-	@GET
-	@Path("/{id}/$everything")
 
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientideverything(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientideverything(id, securityContext);
-	}
-
-	@GET
-	@Path("/{id}/$validate")
-
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientidvalidate(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientidvalidate(id, securityContext);
-	}
 
 	@GET
 	@Path("/$meta")
@@ -254,16 +279,6 @@ public class PatientResource {
 		return delegate.gETPatientmeta(securityContext);
 	}
 
-	@GET
-	@Path("/$validate")
-
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
-	public Response gETPatientvalidate(@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientvalidate(securityContext);
-	}
 
 	@POST
 
@@ -278,21 +293,13 @@ public class PatientResource {
 			@io.swagger.annotations.ApiResponse(code = 404, message = "Not Found - resource type not support, or not a FHIR validation rules ", response = Void.class) })
 
 	public Response pOSTPatient(@Context SecurityContext securityContext, String patientBlob) throws NotFoundException {
-		try {
-			log.debug("Before Validation started ..");
-			ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
-			Patient patient = FhirContext.forDstu3().newJsonParser().parseResource(Patient.class, patientBlob);
-			// Patient patient = new Patient();
-			log.debug("Executing patient create.. ");
-			log.debug("The security context object.." + securityContext);
-
-			if (patient != null) {
-				log.debug("The patient object received .." + patient.getName());
-			} else {
-				log.debug("Patient object is null..");
-			}
-
-			// Ask the context for a validator
+		OperationOutcome opOutCome = null;
+		
+			
+		log.debug("Before Validation started ..");
+		//ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
+		if(VALIDATE_FHIR_RESOURCE.equals("true")) {
+			ValidationResult result = LambdaHandler.getFHIRValidator().validateWithResult(patientBlob);
 
 			log.debug("After Validation  ..");
 			if (result.getMessages().size() > 0) {
@@ -303,99 +310,112 @@ public class PatientResource {
 				}
 				return Response.status(Response.Status.BAD_REQUEST).build();
 			}
-
-			//JsonObject jsonObject = new JsonParser().parse(patientBlob).getAsJsonObject();
-
-			//System.out.println(jsonObject.get("id").getAsString()); // John
-
-			// log.debug("Executing dynamo db..");
-			log.debug("Execute Dynamo DB");
-			// ddbMapper.save(patient, new DynamoDBMapperConfig(new
-			// DynamoDBMapperConfig.TableNameOverride(PATIENT_TABLE)));
-			DynamoDB dynamodb = new DynamoDB(LambdaHandler.getDDBClient());
-			Table myTable = dynamodb.getTable(PATIENT_TABLE);
-
-			// Make sure your object includes the hash or hash/range key
-			String myJsonString = patientBlob;
-
-			// Convert the JSON into an object
-			Item myItem = Item.fromJSON(myJsonString);
-
-			// Insert the Object
-			myTable.putItem(myItem);
-
-			// return Response.status(201).entity(newOrder).build();
-		} catch (Exception e) {
-			e.printStackTrace();
-			return Response.status(Response.Status.BAD_REQUEST).entity("Failed  to create a new type").build();
 		}
+		Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, patientBlob);
+		// Patient patient = new Patient();
+		String id = this.createPatient(patient);
+
+		//load attachment to S3
+		
+		AmazonS3 s3Client = LambdaHandler.getS3Client();
+		String s3Key = id+"_V1";
+		s3Client.putObject(FHIR_INSTANCE_BUCKET,s3Key, patientBlob);
+		
+		//load meta info to Dyanamo DB
+		
+		HashMap<String, AttributeValue> attValues = new HashMap<String,AttributeValue>();
+		attValues.put("ResourceType", new AttributeValue("Patient"));
+		attValues.put("id",new AttributeValue(id));
+		attValues.put("BucketName",new AttributeValue(FHIR_INSTANCE_BUCKET));
+		attValues.put("Key",new AttributeValue(s3Key));
+		
+		//metaTable.putItem(FHIR_META_TABLE,)
+		AmazonDynamoDB ddbClient = LambdaHandler.getDDBClient();
+		ddbClient.putItem(FHIR_META_TABLE, attValues);
+		
+		opOutCome = new OperationOutcome();
+		opOutCome.setId(new IdType("Patient", id, "1"));
+		//opOutCome.fhirType();
+		Narrative narrative = new Narrative();
+		narrative.setStatus(NarrativeStatus.GENERATED);
+		narrative.setDivAsString("<div xmlns=\\\"http://www.w3.org/1999/xhtml\\\"><h1>Operation Outcome</h1>"
+				+ "<table border=\\\"0\\\"><tr><td style=\\\"font-weight: bold;\\\">INFORMATION</td><td>[]</td>"
+				+ "<td><pre>Successfully created resource \\\"Patient/"+id+"/_history/1\\\" in 36ms</pre>"
+				+ "</td>\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\n\\t\\t\\t</tr>\\n\\t\\t\\t<tr>\\n\\t\\t\\t\\t<td style=\\\"font-weight: bold;\\\">INFORMATION</td>"
+				+ "\\n\\t\\t\\t\\t<td>[]</td>\\n\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\t<td>"
+				+ "<pre>No issues detected during validation</pre></td>\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\n\\t\\t\\t</tr>\\n\\t\\t</table>\\n\\t</div>");
+		opOutCome.setText(narrative);
+		ArrayList<OperationOutcomeIssueComponent> list = new ArrayList<OperationOutcomeIssueComponent>();
+		
+		OperationOutcomeIssueComponent issue = new OperationOutcomeIssueComponent();
+		issue.setSeverity(IssueSeverity.INFORMATION);
+		issue.setCode(IssueType.INFORMATIONAL);
+		issue.setDiagnostics("Successfully created resource Patient/"+id+"/_history/1");
+		list.add(issue);
+		
+		issue = new OperationOutcomeIssueComponent();
+		issue.setSeverity(IssueSeverity.INFORMATION);
+		issue.setCode(IssueType.INFORMATIONAL);
+		issue.setDiagnostics("No issues detected during validation");
+		list.add(issue);
+		opOutCome.addContained(patient);
+		
+		opOutCome.setIssue(list);
+		// return Response.status(201).entity(newOrder).build();
+
 		log.debug("End of function...");
 		System.out.println("End of function from system out....");
-		return Response.status(Response.Status.CREATED).entity("Succesfully created a new type").build();
+
+		return Response.status(Response.Status.CREATED).entity(LambdaHandler
+				.getJsonParser()
+				.encodeResourceToString(opOutCome)).build();
+	}
+	
+	
+	/**
+	 * method to create Patient record using a Patient object
+	 * @param pat
+	 * @return
+	 */
+	
+	public String createPatient(Patient patient) {
+		log.debug("Executing patient create.. ");
+		//log.debug("The security context object.." + securityContext);
+
+		if (patient != null) {
+			log.debug("The patient object received .." + patient.getName());
+		} else {
+			log.debug("Patient object is null..");
+		}
+		String id = patient.getId();
+		if(id == null) {
+			id =  UUID.randomUUID().toString();
+			patient.setId(id);
+		}else {
+			patient.setId(id.substring(id.indexOf("urn:uuid:")+9)); //extracting the guid part
+		}
+		// log.debug("Executing dynamo db..");
+		log.debug("Execute Dynamo DB with id" +id);
+
+		DynamoDB dynamodb = new DynamoDB(LambdaHandler.getDDBClient());
+		Table myTable = dynamodb.getTable(PATIENT_TABLE);
+		
+		
+
+		// Make sure your object includes the hash or hash/range key
+		String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(patient);
+		
+		log.debug("The patient id : "+patient.getId()+ " JSON String "+myJsonString);
+
+		// Convert the JSON into an object
+		Item myItem = Item.fromJSON(myJsonString);
+
+		// Insert the Object
+		myTable.putItem(myItem);
+		return id;
 	}
 
-	@POST
-	@Path("/_validate/{id}")
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "Create a new resource ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 201, message = "Validates a type ", response = Void.class) })
-	public Response pOSTPatientValidateid(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.pOSTPatientValidateid(id, securityContext);
-	}
 
-	@POST
-	@Path("/{id}/_history/{vid}/_tags")
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "Affix tags in the list to the nominated verion of the resource ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 201, message = "Succesfully affix tags ", response = Void.class) })
-	public Response pOSTPatientidHistoryvidTags(@ApiParam(value = "", required = true) @PathParam("vid") String vid,
-			@ApiParam(value = "", required = true) @PathParam("id") String id, @Context SecurityContext securityContext)
-			throws NotFoundException {
-		return delegate.pOSTPatientidHistoryvidTags(vid, id, securityContext);
-	}
-
-	@POST
-	@Path("/{id}/_history/{vid}/_tags/_delete")
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "Removes all tags in the provided list of tags for the nominated version of the resource ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 204, message = "Successful deletion of tags", response = Void.class) })
-	public Response pOSTPatientidHistoryvidTagsDelete(
-			@ApiParam(value = "", required = true) @PathParam("vid") String vid,
-			@ApiParam(value = "", required = true) @PathParam("id") String id, @Context SecurityContext securityContext)
-			throws NotFoundException {
-		return delegate.pOSTPatientidHistoryvidTagsDelete(vid, id, securityContext);
-	}
-
-	@POST
-	@Path("/{id}/_tags")
-	@Consumes({ "application/json" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "Affix tags in the list to the nominated resource ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 201, message = "Succesfully affix tags ", response = Void.class) })
-	public Response pOSTPatientidTags(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.pOSTPatientidTags(id, securityContext);
-	}
-
-	@POST
-	@Path("/{id}/_tags/_delete")
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "Removes all tags in the provided list of tags for the nominated resource ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 204, message = "Status 204", response = Void.class) })
-	public Response pOSTPatientidTagsDelete(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.pOSTPatientidTagsDelete(id, securityContext);
-	}
 
 	@PUT
 	@Path("/{id}")
@@ -418,10 +438,105 @@ public class PatientResource {
 			@io.swagger.annotations.ApiResponse(code = 412, message = "Version conflict management ", response = Void.class),
 
 			@io.swagger.annotations.ApiResponse(code = 422, message = "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail. ", response = Void.class) })
+	
 	public Response pUTPatientid(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.pUTPatientid(id, securityContext);
+			@Context SecurityContext securityContext,
+			String patientBlob) throws NotFoundException {
+		try {
+			log.debug("The id received is :" + id);
+			log.debug("Before Validation started ..");
+
+			Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class,patientBlob);
+			DynamoDB dynamodb = new DynamoDB(LambdaHandler.getDDBClient());
+			Table myTable = dynamodb.getTable(PATIENT_TABLE);
+			KeyAttribute key = new KeyAttribute("id", id);
+			
+			//Iterable<Map.Entry<String, Object>> iterable =Item.fromJSON(patientBlob).attributes();
+			ArrayList<AttributeUpdate> attList = new ArrayList<AttributeUpdate>();
+			ArrayList<AttributeValue> valList = new ArrayList<AttributeValue>();
+			
+			for (Map.Entry<String,Object> entry : Item.fromJSON(patientBlob).attributes()) {
+				//log.debug("The key is :"+entry.getKey());
+				//log.debug("The value is :"+entry.getValue());
+				AttributeUpdate attUpd = new AttributeUpdate(entry.getKey());
+				attList.add(attUpd);
+				AttributeValue attVal = new AttributeValue(entry.getValue().toString());
+				valList.add(attVal);
+				
+			}
+			patient.setId(id);
+			// Make sure your object includes the hash or hash/range key
+			String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(patient);
+
+			// Convert the JSON into an object
+			Item myItem = Item.fromJSON(myJsonString);
+
+			// Insert the Object
+			myTable.putItem(myItem);
+			
+			log.debug("Patient table updated : ");
+		}catch(Exception exp) {
+			exp.printStackTrace();
+			return Response.status(Response.Status.BAD_REQUEST)
+					.entity("Bad Request - Resource cound not be parsed or failed basic FHIR validation rules")
+					.build();
+		}
+
+		return Response.status(Response.Status.ACCEPTED).entity(patientBlob).build();
+		
 	}
+	
+	public void testBundle()throws IOException {
+		
+		String bundleBlob = this.getFile("Doretha289_Bayer639_4480d762-f8c4-4691-bbe9-3dabe66496eb.json");
+				
+		Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
+		
+		List<BundleEntryComponent> list = bundle.getEntry();
+		
+		for(BundleEntryComponent entry : list) {
+			String fhirType = entry.getResource().fhirType();
+			//System.out.println(entry.getResource().fhirType());
+			
+			if(fhirType.equals(ResourceType.PATIENT.getDisplay())) {
+				Patient pat = (Patient)entry.getResource();
+				log.debug("The patient name "+pat.getName());
+				List<HumanName> namelist = pat.getName();
+				for(HumanName name : namelist) {
+					log.debug("The patient name : "+ name.getGivenAsSingleString());
+				}
+				
+			}	
+		}
+		
+	}
+	
+	private String getFile(String fileName) {
+
+		StringBuilder result = new StringBuilder("");
+
+		//Get file from resources folder
+		ClassLoader classLoader = getClass().getClassLoader();
+		File file = new File(classLoader.getResource(fileName).getFile());
+
+		try (Scanner scanner = new Scanner(file)) {
+
+			while (scanner.hasNextLine()) {
+				String line = scanner.nextLine();
+				result.append(line).append("\n");
+			}
+
+			scanner.close();
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+			
+		return result.toString();
+
+	}
+	
+
 
 	public static void main(String[] args) {
 		AmazonDynamoDB client = LambdaHandler.getDDBClient();

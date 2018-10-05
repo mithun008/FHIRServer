@@ -5,20 +5,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import org.glassfish.jersey.jackson.JacksonFeature;
+import org.glassfish.jersey.server.ResourceConfig;
 
-import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
-
+import com.amazonaws.lab.exceptions.UncaughtException;
 import com.amazonaws.serverless.proxy.jersey.JerseyLambdaContainerHandler;
 import com.amazonaws.serverless.proxy.model.AwsProxyRequest;
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
-import org.glassfish.jersey.jackson.JacksonFeature;
-import org.glassfish.jersey.server.ResourceConfig;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.validation.FhirValidator;
 
 /**
  * This is the main Lambda handler class. It implements the RequestStreamHandler interface from the lambda-core package (see
@@ -33,15 +37,24 @@ public class LambdaHandler implements RequestStreamHandler {
             // in the com.amazonaws.lab.resources package. To speed up start time, you 
             // could register the individual classes.
             .packages("com.amazonaws.lab.resources")
-            .register(JacksonFeature.class);
+            .register(JacksonFeature.class)
+            .register(UncaughtException.class);
+    
 
     // Initialize the serverless-java-container library as a Jersey proxy
     private static final JerseyLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler
             = JerseyLambdaContainerHandler.getAwsProxyHandler(jerseyApplication);
     // singletons for the DDB client and object mapper
     private static AmazonDynamoDB ddbClient = AmazonDynamoDBClientBuilder.defaultClient();
+    
     //private static DynamoDBMapper ddbMapper = new DynamoDBMapper(ddbClient);;
-
+    private static AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
+    
+    private static FhirValidator fhirValidator = FhirContext.forDstu3().newValidator();
+    
+    private static IParser jsonParser = FhirContext.forDstu3().newJsonParser();
+    
+    private static DynamoDB dyanmoDB = null;
 
     // Main entry point of the Lambda function, uses the serverless-java-container initialized in the global scope
     // to proxy requests to our jersey application
@@ -58,7 +71,26 @@ public class LambdaHandler implements RequestStreamHandler {
         return ddbClient;
     }
 
-
+    public static AmazonS3 getS3Client() {
+    	
+        return s3Client;
+    }
+    
+    public static FhirValidator getFHIRValidator() {
+    	return fhirValidator;
+    }
+    
+    public static IParser getJsonParser() {
+    	return jsonParser;
+    }
+    
+    public static DynamoDB getDynamoDB() {
+    	if(dyanmoDB == null) {
+    		dyanmoDB = new DynamoDB(ddbClient);
+    	}
+    	return dyanmoDB;
+    	
+    }
 
     /*
     // This function can start the local server to test the API
