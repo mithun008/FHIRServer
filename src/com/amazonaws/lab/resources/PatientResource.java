@@ -79,7 +79,7 @@ public class PatientResource {
 	@Context
 	SecurityContext securityContext;
 
-	private final PatientApiService delegate;
+	
 
 	static final Logger log = LogManager.getLogger(PatientResource.class);
 
@@ -93,17 +93,6 @@ public class PatientResource {
 
 	public PatientResource() {
 	
-		PatientApiService delegate = null;
-		/**
-		 * The original implementation relied on using reflection to load the delegation
-		 * class on run time. Avoiding the reflection approach for a efficient lambda
-		 * implementation.
-		 */
-
-		delegate = new PatientApiServiceImpl();
-
-		this.delegate = delegate;
-		
 	}
 
 	@DELETE
@@ -118,8 +107,9 @@ public class PatientResource {
 
 			@io.swagger.annotations.ApiResponse(code = 405, message = "Method Not allowed - delete is not allowed ", response = Void.class) })
 	public Response dELETEPatientid(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.dELETEPatientid(id, securityContext);
+			@Context SecurityContext securityContext) {
+		return Response.status(405).entity("Method Not allowed - delete is not allowed ").build();
+		
 	}
 
 	@GET
@@ -130,7 +120,7 @@ public class PatientResource {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
 	public Response gETPatient(@Context SecurityContext securityContext,
 			@DefaultValue("F") @QueryParam("gender") String gender,
-			@DefaultValue("30") @QueryParam("date-range-days") String dateRangeDays) throws NotFoundException {
+			@DefaultValue("30") @QueryParam("date-range-days") String dateRangeDays)  {
 		
 		
 		Bundle bundle = new Bundle();
@@ -208,7 +198,7 @@ public class PatientResource {
 			@DefaultValue("") @QueryParam("gender") String gender,
 			@DefaultValue("") @QueryParam("birthDate") String birthDate,
 			@DefaultValue("") @QueryParam("address-city") String addressCity,
-			@Context SecurityContext securityContext) throws NotFoundException {
+			@Context SecurityContext securityContext) {
 		
 		Bundle bundle = new Bundle();
 	
@@ -258,16 +248,7 @@ public class PatientResource {
 		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
 	}
 
-	@GET
-	@Path("/_tags")
 
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "get a list of tags used for the nominated resource type ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Succesfully retrieved resource ", response = Void.class) })
-	public Response gETPatientTags(@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientTags(securityContext);
-	}
 
 	@GET
 	@Path("/{id}")
@@ -283,8 +264,7 @@ public class PatientResource {
 			@io.swagger.annotations.ApiResponse(code = 422, message = "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail. ", response = Void.class) })
 
 	public Response gETPatientid(@Context SecurityContext securityContext,
-			@ApiParam(value = "", required = true) @PathParam("id") String id, @HeaderParam("Accept") String accepted)
-			throws NotFoundException {
+			@ApiParam(value = "", required = true) @PathParam("id") String id, @HeaderParam("Accept") String accepted) {
 
 		// System.out.println("Method call invoked..");
 		log.debug("Method call invoked..");
@@ -318,17 +298,6 @@ public class PatientResource {
 
 
 
-	@GET
-	@Path("/{id}/_tags")
-
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
-	@io.swagger.annotations.ApiOperation(value = "", notes = "get a list of tags used for the nominated resource. This duplicates the HTTP header entries ", response = Void.class, tags = {})
-	@io.swagger.annotations.ApiResponses(value = {
-			@io.swagger.annotations.ApiResponse(code = 200, message = "Succesfully retrieved resource ", response = Void.class) })
-	public Response gETPatientidTags(@ApiParam(value = "", required = true) @PathParam("id") String id,
-			@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientidTags(id, securityContext);
-	}
 
 
 
@@ -338,8 +307,9 @@ public class PatientResource {
 	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Successfully retrieved resource(s) ", response = Void.class) })
-	public Response gETPatientmeta(@Context SecurityContext securityContext) throws NotFoundException {
-		return delegate.gETPatientmeta(securityContext);
+	public Response gETPatientmeta(@Context SecurityContext securityContext)  {
+		return Response.status(Response.Status.NOT_IMPLEMENTED).entity("Meta not supported").build();
+		
 	}
 
 
@@ -355,7 +325,7 @@ public class PatientResource {
 
 			@io.swagger.annotations.ApiResponse(code = 404, message = "Not Found - resource type not support, or not a FHIR validation rules ", response = Void.class) })
 
-	public Response pOSTPatient(@Context SecurityContext securityContext, String patientBlob) throws NotFoundException {
+	public Response pOSTPatient(@Context SecurityContext securityContext, String patientBlob)  {
 		OperationOutcome opOutCome = null;
 		
 			
@@ -507,7 +477,7 @@ public class PatientResource {
 	
 	public Response pUTPatientid(@ApiParam(value = "", required = true) @PathParam("id") String id,
 			@Context SecurityContext securityContext,
-			String patientBlob) throws NotFoundException {
+			String patientBlob) {
 		try {
 			log.debug("The id received is :" + id);
 			log.debug("Before Validation started ..");

@@ -4,23 +4,14 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
 
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
@@ -29,8 +20,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.dstu3.model.Bundle.BundleLinkComponent;
-import org.hl7.fhir.dstu3.model.Bundle.BundleType;
 import org.hl7.fhir.dstu3.model.Enumerations.ResourceType;
 import org.hl7.fhir.dstu3.model.HumanName;
 import org.hl7.fhir.dstu3.model.IdType;
@@ -46,15 +35,9 @@ import org.hl7.fhir.dstu3.model.Reference;
 
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.document.AttributeUpdate;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.ItemCollection;
-import com.amazonaws.services.dynamodbv2.document.KeyAttribute;
-import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
 import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
-import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.s3.AmazonS3;
 
@@ -63,7 +46,6 @@ import ca.uhn.fhir.parser.StrictErrorHandler;
 import ca.uhn.fhir.validation.FhirValidator;
 import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
-import io.swagger.annotations.ApiParam;
 
 @Path("/bundle")
 
@@ -97,109 +79,106 @@ public class BundleResource {
 
 			@io.swagger.annotations.ApiResponse(code = 404, message = "Not Found - resource type not support, or not a FHIR validation rules ", response = Void.class) })
 
-	public Response pOSTBundle(@Context SecurityContext securityContext, String bundleBlob) throws NotFoundException {
+	public Response pOSTBundle(@Context SecurityContext securityContext, String bundleBlob) {
 		OperationOutcome opOutCome = null;
-		try {
+		
 			
-			log.debug("Before Validation started ..");
-			//ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
-			if(VALIDATE_FHIR_RESOURCE.equals("true")) {
-				ValidationResult result = LambdaHandler.getFHIRValidator().validateWithResult(bundleBlob);
-				if (result.getMessages().size() > 0) {
-					log.debug("Validation failed ..");
-					// The result object now contains the validation results
-					for (SingleValidationMessage next : result.getMessages()) {
-						log.debug("Validation message : " + next.getLocationString() + " " + next.getMessage());
-					}
-					return Response.status(Response.Status.BAD_REQUEST).build();
+		log.debug("Before Validation started ..");
+		//ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
+		if(VALIDATE_FHIR_RESOURCE.equals("true")) {
+			ValidationResult result = LambdaHandler.getFHIRValidator().validateWithResult(bundleBlob);
+			if (result.getMessages().size() > 0) {
+				log.debug("Validation failed ..");
+				// The result object now contains the validation results
+				for (SingleValidationMessage next : result.getMessages()) {
+					log.debug("Validation message : " + next.getLocationString() + " " + next.getMessage());
 				}
+				return Response.status(Response.Status.BAD_REQUEST).build();
 			}
-			Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
-			
-			String id = this.createBundle(bundle);
-			
-			List<BundleEntryComponent> list = bundle.getEntry();
-			String patientId = null;
-			//Patient patient = null;
-			String patientFullUrl = null;
-			for(BundleEntryComponent entry : list) {
-				String fhirType = entry.getResource().fhirType();
-				//System.out.println(entry.getResource().fhirType());
-				
-				if(fhirType.equals(ResourceType.PATIENT.getDisplay())) {
-					Patient patient = (Patient)entry.getResource();
-					patientFullUrl = entry.getFullUrl();
-					log.debug("The patient name "+patient.getName());
-					PatientResource patResource = new PatientResource();
-					patientId = patResource.createPatient(patient);
-					
-				}else if(fhirType.equals(ResourceType.OBSERVATION.getDisplay())){
-					Observation obs = (Observation)entry.getResource();
-					log.trace("The observation resource :"+obs.fhirType());
-					Reference ref = new Reference(patientFullUrl);
-					//assuming the patient comes first so patient would be created
-					ref.setId(UUID.randomUUID().toString());
-					//ref.setReference(patientId);
-					
-					obs.setSubject(ref);
-					log.trace("The patient reference id "+obs.getSubject().getReference());
-					ObservationResource obsResource = new ObservationResource();
-					obsResource.createObservation(obs);
-				}
-				
-			}
-
-			//load attachment to S3
-			
-			AmazonS3 s3Client = LambdaHandler.getS3Client();
-			String s3Key = id+"_V1";
-			s3Client.putObject(FHIR_INSTANCE_BUCKET,s3Key, bundleBlob);
-			
-			//load meta info to Dyanamo DB
-			
-			HashMap<String, AttributeValue> attValues = new HashMap<String,AttributeValue>();
-			attValues.put("ResourceType", new AttributeValue("Bundle"));
-			attValues.put("id",new AttributeValue(id));
-			attValues.put("BucketName",new AttributeValue(FHIR_INSTANCE_BUCKET));
-			attValues.put("Key",new AttributeValue(s3Key));
-			
-			//metaTable.putItem(FHIR_META_TABLE,)
-			AmazonDynamoDB ddbClient = LambdaHandler.getDDBClient();
-			ddbClient.putItem(FHIR_META_TABLE, attValues);
-			
-			opOutCome = new OperationOutcome();
-			opOutCome.setId(new IdType("Patient", id, "1"));
-			//opOutCome.fhirType();
-			Narrative narrative = new Narrative();
-			narrative.setStatus(NarrativeStatus.GENERATED);
-			narrative.setDivAsString("<div xmlns=\\\"http://www.w3.org/1999/xhtml\\\"><h1>Operation Outcome</h1>"
-					+ "<table border=\\\"0\\\"><tr><td style=\\\"font-weight: bold;\\\">INFORMATION</td><td>[]</td>"
-					+ "<td><pre>Successfully created resource \\\"Patient/"+id+"/_history/1\\\" in 36ms</pre>"
-					+ "</td>\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\n\\t\\t\\t</tr>\\n\\t\\t\\t<tr>\\n\\t\\t\\t\\t<td style=\\\"font-weight: bold;\\\">INFORMATION</td>"
-					+ "\\n\\t\\t\\t\\t<td>[]</td>\\n\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\t<td>"
-					+ "<pre>No issues detected during validation</pre></td>\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\n\\t\\t\\t</tr>\\n\\t\\t</table>\\n\\t</div>");
-			opOutCome.setText(narrative);
-			ArrayList<OperationOutcomeIssueComponent> outcomelist = new ArrayList<OperationOutcomeIssueComponent>();
-			
-			OperationOutcomeIssueComponent issue = new OperationOutcomeIssueComponent();
-			issue.setSeverity(IssueSeverity.INFORMATION);
-			issue.setCode(IssueType.INFORMATIONAL);
-			issue.setDiagnostics("Successfully created resource Bundle/"+id+"/_history/1");
-			outcomelist.add(issue);
-			
-			issue = new OperationOutcomeIssueComponent();
-			issue.setSeverity(IssueSeverity.INFORMATION);
-			issue.setCode(IssueType.INFORMATIONAL);
-			issue.setDiagnostics("No issues detected during validation");
-			outcomelist.add(issue);
-			opOutCome.addContained(bundle);
-			
-			opOutCome.setIssue(outcomelist);
-			// return Response.status(201).entity(newOrder).build();
-		} catch (Exception e) {
-			e.printStackTrace();
-			return Response.status(Response.Status.BAD_REQUEST).entity("Failed  to create a new type").build();
 		}
+		Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
+		
+		String id = this.createBundle(bundle);
+		
+		List<BundleEntryComponent> list = bundle.getEntry();
+		String patientId = null;
+		//Patient patient = null;
+		String patientFullUrl = null;
+		for(BundleEntryComponent entry : list) {
+			String fhirType = entry.getResource().fhirType();
+			//System.out.println(entry.getResource().fhirType());
+			
+			if(fhirType.equals(ResourceType.PATIENT.getDisplay())) {
+				Patient patient = (Patient)entry.getResource();
+				patientFullUrl = entry.getFullUrl();
+				log.debug("The patient name "+patient.getName());
+				PatientResource patResource = new PatientResource();
+				patientId = patResource.createPatient(patient);
+				
+			}else if(fhirType.equals(ResourceType.OBSERVATION.getDisplay())){
+				Observation obs = (Observation)entry.getResource();
+				log.trace("The observation resource :"+obs.fhirType());
+				Reference ref = new Reference(patientFullUrl);
+				//assuming the patient comes first so patient would be created
+				ref.setId(UUID.randomUUID().toString());
+				//ref.setReference(patientId);
+				
+				obs.setSubject(ref);
+				log.trace("The patient reference id "+obs.getSubject().getReference());
+				ObservationResource obsResource = new ObservationResource();
+				obsResource.createObservation(obs);
+			}
+			
+		}
+
+		//load attachment to S3
+		
+		AmazonS3 s3Client = LambdaHandler.getS3Client();
+		String s3Key = id+"_V1";
+		s3Client.putObject(FHIR_INSTANCE_BUCKET,s3Key, bundleBlob);
+		
+		//load meta info to Dyanamo DB
+		
+		HashMap<String, AttributeValue> attValues = new HashMap<String,AttributeValue>();
+		attValues.put("ResourceType", new AttributeValue("Bundle"));
+		attValues.put("id",new AttributeValue(id));
+		attValues.put("BucketName",new AttributeValue(FHIR_INSTANCE_BUCKET));
+		attValues.put("Key",new AttributeValue(s3Key));
+		
+		//metaTable.putItem(FHIR_META_TABLE,)
+		AmazonDynamoDB ddbClient = LambdaHandler.getDDBClient();
+		ddbClient.putItem(FHIR_META_TABLE, attValues);
+		
+		opOutCome = new OperationOutcome();
+		opOutCome.setId(new IdType("Patient", id, "1"));
+		//opOutCome.fhirType();
+		Narrative narrative = new Narrative();
+		narrative.setStatus(NarrativeStatus.GENERATED);
+		narrative.setDivAsString("<div xmlns=\\\"http://www.w3.org/1999/xhtml\\\"><h1>Operation Outcome</h1>"
+				+ "<table border=\\\"0\\\"><tr><td style=\\\"font-weight: bold;\\\">INFORMATION</td><td>[]</td>"
+				+ "<td><pre>Successfully created resource \\\"Patient/"+id+"/_history/1\\\" in 36ms</pre>"
+				+ "</td>\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\n\\t\\t\\t</tr>\\n\\t\\t\\t<tr>\\n\\t\\t\\t\\t<td style=\\\"font-weight: bold;\\\">INFORMATION</td>"
+				+ "\\n\\t\\t\\t\\t<td>[]</td>\\n\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\t\\t<td>"
+				+ "<pre>No issues detected during validation</pre></td>\\n\\t\\t\\t\\t\\t\\n\\t\\t\\t\\t\\n\\t\\t\\t</tr>\\n\\t\\t</table>\\n\\t</div>");
+		opOutCome.setText(narrative);
+		ArrayList<OperationOutcomeIssueComponent> outcomelist = new ArrayList<OperationOutcomeIssueComponent>();
+		
+		OperationOutcomeIssueComponent issue = new OperationOutcomeIssueComponent();
+		issue.setSeverity(IssueSeverity.INFORMATION);
+		issue.setCode(IssueType.INFORMATIONAL);
+		issue.setDiagnostics("Successfully created resource Bundle/"+id+"/_history/1");
+		outcomelist.add(issue);
+		
+		issue = new OperationOutcomeIssueComponent();
+		issue.setSeverity(IssueSeverity.INFORMATION);
+		issue.setCode(IssueType.INFORMATIONAL);
+		issue.setDiagnostics("No issues detected during validation");
+		outcomelist.add(issue);
+		opOutCome.addContained(bundle);
+		
+		opOutCome.setIssue(outcomelist);
+		// return Response.status(201).entity(newOrder).build();
+
 		log.debug("End of function...");
 		System.out.println("End of function from system out....");
 

@@ -63,7 +63,7 @@ public class ObservationResource {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
 	public Response gETObservation(
 			@DefaultValue("") @QueryParam("patient-ref-id") String patientRefId,
-			@Context SecurityContext securityContext) throws NotFoundException {
+			@Context SecurityContext securityContext)  {
 		Bundle bundle = new Bundle();
 
 		bundle.setType(BundleType.SEARCHSET);
