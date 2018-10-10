@@ -20,6 +20,7 @@ Globals:
     EndpointConfiguration: REGIONAL
 
 Resources:
+  # DynamoDB tables to store the FHIR resources
   FHIRPatientTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -105,7 +106,7 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
-
+  # DynamoDB table to store meta data information for storing the raw payload received.
   FHIRResourceMetaTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -147,9 +148,10 @@ Resources:
       ExplicitAuthFlows:
         - ADMIN_NO_SRP_AUTH
 
+  # S3 Bucket to store the actual payload as a file.
   FHIRInstanceBucket:
     Type: AWS::S3::Bucket
-    #DeletionPolicy: Retain
+    DeletionPolicy: Retain
     #AccessControl: Private
     Properties:
       VersioningConfiguration:
@@ -171,6 +173,7 @@ Resources:
           Principal:
             Service: lambda.amazonaws.com
 
+  #FHIR service API definitions
   FHIRServiceApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -201,8 +204,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -222,8 +225,8 @@ Resources:
                 required: true
                 type: "string"
               responses: {}
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -289,8 +292,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -310,8 +313,8 @@ Resources:
                 required: true
                 type: "string"
               responses: {}
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -345,6 +348,7 @@ Resources:
           -  Effect: "Allow"
              Action:
                - "s3:PutObject"
+               - "s3:GetObject"
              Resource:
                Fn::Join:
                  - ""
@@ -437,6 +441,9 @@ Resources:
             Path: /observation/{proxy+}
             Method: ANY
 Outputs:
+  FHIRInstanceBucket:
+    Description: FHIR Instance bucket
+    Value: !GetAtt FHIRInstanceBucket.Arn
   ApiUrl:
     Description: URL for application
     Value: !Sub 'https://${FHIRServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
