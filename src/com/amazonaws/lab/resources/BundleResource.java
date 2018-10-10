@@ -81,9 +81,9 @@ public class BundleResource {
 	private static final String FHIR_META_TABLE = System.getenv("FHIR_RESOURCE_META_TABLE");
 	private static final String FHIR_INSTANCE_BUCKET = System.getenv("FHIR_INSTANCE_BUCKET");
 	
-	private static final String BUNDLE_TABLE = System.getenv("BUNDLE_TABLE");
+	private static final String BUNDLE_TABLE = System.getenv("FHIR_BUNDLE_TABLE");
 
-
+	private static final String VALIDATE_FHIR_RESOURCE = System.getenv("VALIDATE_FHIR_RESOURCE");
 
 	@POST
 
@@ -103,16 +103,17 @@ public class BundleResource {
 			
 			log.debug("Before Validation started ..");
 			//ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
-			ValidationResult result = LambdaHandler.getFHIRValidator().validateWithResult(bundleBlob);
-			if (result.getMessages().size() > 0) {
-				log.debug("Validation failed ..");
-				// The result object now contains the validation results
-				for (SingleValidationMessage next : result.getMessages()) {
-					log.debug("Validation message : " + next.getLocationString() + " " + next.getMessage());
+			if(VALIDATE_FHIR_RESOURCE.equals("true")) {
+				ValidationResult result = LambdaHandler.getFHIRValidator().validateWithResult(bundleBlob);
+				if (result.getMessages().size() > 0) {
+					log.debug("Validation failed ..");
+					// The result object now contains the validation results
+					for (SingleValidationMessage next : result.getMessages()) {
+						log.debug("Validation message : " + next.getLocationString() + " " + next.getMessage());
+					}
+					return Response.status(Response.Status.BAD_REQUEST).build();
 				}
-				return Response.status(Response.Status.BAD_REQUEST).build();
 			}
-			
 			Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
 			
 			String id = this.createBundle(bundle);
@@ -134,14 +135,14 @@ public class BundleResource {
 					
 				}else if(fhirType.equals(ResourceType.OBSERVATION.getDisplay())){
 					Observation obs = (Observation)entry.getResource();
-					log.debug("The observation resource :"+obs.fhirType());
+					log.trace("The observation resource :"+obs.fhirType());
 					Reference ref = new Reference(patientFullUrl);
 					//assuming the patient comes first so patient would be created
 					ref.setId(UUID.randomUUID().toString());
 					//ref.setReference(patientId);
 					
 					obs.setSubject(ref);
-					log.debug("The patient reference id "+obs.getSubject().getReference());
+					log.trace("The patient reference id "+obs.getSubject().getReference());
 					ObservationResource obsResource = new ObservationResource();
 					obsResource.createObservation(obs);
 				}

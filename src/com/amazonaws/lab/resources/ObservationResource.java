@@ -34,7 +34,7 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
 @Path("/observation")
 
-@io.swagger.annotations.Api(description = "the Bundle API")
+@io.swagger.annotations.Api(description = "the Observation API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
 public class ObservationResource {
 	@Context
@@ -46,7 +46,7 @@ public class ObservationResource {
 
 
 	
-	private static final String OBSERVATION_TABLE = System.getenv("OBSERVATION_TABLE");
+	private static final String OBSERVATION_TABLE = System.getenv("FHIR_OBSERVATION_TABLE");
 
 	
 
@@ -122,15 +122,15 @@ public class ObservationResource {
 	 */
 	
 	public String createObservation(Observation observation) {
-		log.debug("Executing Observation create.. ");
-		log.debug("The security context object.." + securityContext);
-		log.debug("The patient reference .. "+observation.getSubject().getReference());
+		//log.debug("Executing Observation create.. ");
+		log.trace("The security context object.." + securityContext);
+		log.trace("The patient reference .. "+observation.getSubject().getReference());
 
 		String id =  UUID.randomUUID().toString();
 		observation.setId(id);
 		
 		// log.debug("Executing dynamo db..");
-		log.debug("Execute Dynamo DB with id" +id);
+		log.trace("Execute Dynamo DB with id" +id);
 		// ddbMapper.save(patient, new DynamoDBMapperConfig(new
 		// DynamoDBMapperConfig.TableNameOverride(PATIENT_TABLE)));
 		DynamoDB dynamodb = new DynamoDB(LambdaHandler.getDDBClient());

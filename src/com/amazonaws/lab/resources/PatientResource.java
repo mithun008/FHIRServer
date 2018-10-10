@@ -3,6 +3,7 @@ package com.amazonaws.lab.resources;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -43,7 +44,7 @@ import org.hl7.fhir.dstu3.model.OperationOutcome.IssueSeverity;
 import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.OperationOutcome.OperationOutcomeIssueComponent;
 import org.hl7.fhir.dstu3.model.Patient;
-import org.joda.time.LocalDate;
+
 
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
@@ -59,7 +60,6 @@ import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
 import com.amazonaws.services.dynamodbv2.document.Table;
 import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
-import com.amazonaws.services.dynamodbv2.document.utils.NameMap;
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.s3.AmazonS3;
@@ -83,7 +83,7 @@ public class PatientResource {
 
 	static final Logger log = LogManager.getLogger(PatientResource.class);
 
-	private static final String PATIENT_TABLE = System.getenv("PATIENT_TABLE");
+	private static final String PATIENT_TABLE = System.getenv("FHIR_PATIENT_TABLE");
 	private static final String FHIR_META_TABLE = System.getenv("FHIR_RESOURCE_META_TABLE");
 	private static final String FHIR_INSTANCE_BUCKET = System.getenv("FHIR_INSTANCE_BUCKET");
 	private static final String VALIDATE_FHIR_RESOURCE = System.getenv("VALIDATE_FHIR_RESOURCE");
@@ -172,24 +172,26 @@ public class PatientResource {
 		        
 		int resultCount = 0;
 		ItemCollection<QueryOutcome> items = index.query(spec);
-		Iterator<Item> iter = items.iterator(); 
-		while (iter.hasNext()) {
-			BundleEntryComponent comp = new BundleEntryComponent();
-			Item item = iter.next();
-			String obsJSON = item.toJSON();
-			Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
-			String obsId = item.getString("id");
-		    log.debug("The patient id : "+item.getString("id"));
-		    
-			comp.setResource(patient);
-			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
-			
-			entryList.add(comp);
-			resultCount++;
-		}
-		bundle.setEntry(entryList);
-		bundle.setTotal(resultCount);
-
+		log.debug("The items received : "+items);
+		if(items != null) {
+			Iterator<Item> iter = items.iterator(); 
+			while (iter.hasNext()) {
+				BundleEntryComponent comp = new BundleEntryComponent();
+				Item item = iter.next();
+				String obsJSON = item.toJSON();
+				Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+				String obsId = item.getString("id");
+			    log.debug("The patient id : "+item.getString("id"));
+			    
+				comp.setResource(patient);
+				comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
+				
+				entryList.add(comp);
+				resultCount++;
+			}
+			bundle.setEntry(entryList);
+			bundle.setTotal(resultCount);
+		}	
 		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
 	}
 
@@ -289,29 +291,24 @@ public class PatientResource {
 		
 		String respMsg = "";
 		int respCode=200;
-		try {
-
-			log.debug("The id received from API Gateway : " + id);
-	
-			AmazonDynamoDB client = LambdaHandler.getDDBClient();
-			DynamoDB db = new DynamoDB(client);
-			Table table = db.getTable(PATIENT_TABLE);
-	
-			Item item = table.getItem("id", id);
-			
-			if(item != null) {
-				respMsg = item.toJSON();
-				respCode = 200;
-			}else {
-				respCode = 404;
-				respMsg = "Tried to get an unknown resource";
-			}
-			
-			
-		}catch(Exception exp) {
-			exp.printStackTrace();
-		}
 		
+
+		log.debug("The id received from API Gateway : " + id);
+
+		AmazonDynamoDB client = LambdaHandler.getDDBClient();
+		DynamoDB db = new DynamoDB(client);
+		Table table = db.getTable(PATIENT_TABLE);
+
+		Item item = table.getItem("id", id);
+		
+		if(item != null) {
+			item.removeAttribute("createdDate");
+			respMsg = item.toJSON();
+			respCode = 200;
+		}else {
+			respCode = 404;
+			respMsg = "Tried to get an unknown resource";
+		}
 		
 		log.debug("The json string retrieved : " + respMsg);
 

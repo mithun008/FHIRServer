@@ -13,7 +13,7 @@ Parameters:
   LambdaAlias:
     Type: String
     Default: live
-    Description: The alias used for live production traffic to the Lambda function.    
+    Description: The alias used for live production traffic to the Lambda function.
 
 Globals:
   Api:
@@ -23,26 +23,111 @@ Resources:
   FHIRPatientTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName:
+        Fn::Sub: ${AWS::StackName}_FHIRPatient
       AttributeDefinitions:
-        - AttributeName: "user_id"
+        - AttributeName: "id"
           AttributeType: "S"
+        - AttributeName: "gender"
+          AttributeType: "S"
+        - AttributeName: "createdDate"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        -
+          IndexName: "gender-createdDate-index"
+          KeySchema:
+            -
+              AttributeName: "gender"
+              KeyType: "HASH"
+            -
+              AttributeName: "createdDate"
+              KeyType: "RANGE"
+          Projection:
+            NonKeyAttributes:
+              - "ALL"
+            ProjectionType: "INCLUDE"
+          ProvisionedThroughput:
+            ReadCapacityUnits: "5"
+            WriteCapacityUnits: "5"
+  FHIRObservationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${AWS::StackName}_FHIRObservation
+      AttributeDefinitions:
+
+        - AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "patientRefId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        -
+          IndexName: "patientRefId-index"
+          KeySchema:
+            -
+              AttributeName: "patientRefId"
+              KeyType: "HASH"
+
+          Projection:
+            NonKeyAttributes:
+              - "ALL"
+            ProjectionType: "INCLUDE"
+          ProvisionedThroughput:
+            ReadCapacityUnits: "5"
+            WriteCapacityUnits: "5"
+  FHIRBundleTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${AWS::StackName}_FHIRBundle
+      AttributeDefinitions:
+
         - AttributeName: "id"
           AttributeType: "S"
       KeySchema:
-        - AttributeName: "user_id"
-          KeyType: "HASH"
         - AttributeName: "id"
-          KeyType: "RANGE"
+          KeyType: "HASH"
+
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
 
+  FHIRResourceMetaTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${AWS::StackName}_FHIRResourceMeta
+      AttributeDefinitions:
 
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
 
   UserPool:
     Type: AWS::Cognito::UserPool
+    #DeletionPolicy: Retain
     Properties:
-      AutoVerifiedAttributes: 
+      AutoVerifiedAttributes:
         - email
       UserPoolName: !Ref AWS::StackName
       Schema:
@@ -54,15 +139,39 @@ Resources:
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    #DeletionPolicy: Retain
     Properties:
       ClientName: !Sub '${AWS::StackName}-UserPool'
       GenerateSecret: false
       UserPoolId: !Ref UserPool
-      ExplicitAuthFlows: 
+      ExplicitAuthFlows:
         - ADMIN_NO_SRP_AUTH
-  
 
-  FHIRPatientServiceApi:
+  FHIRInstanceBucket:
+    Type: AWS::S3::Bucket
+    #DeletionPolicy: Retain
+    #AccessControl: Private
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+  FHIRInstanceBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: FHIRInstanceBucket
+    Properties:
+      Bucket: !Ref FHIRInstanceBucket
+
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Sid: Allow Lambda to put objects.
+          Action:
+            - "s3:PutObject"
+          Effect: "Allow"
+          Resource: !Sub 'arn:aws:s3:::${FHIRInstanceBucket}/*'
+          Principal:
+            Service: lambda.amazonaws.com
+
+  FHIRServiceApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: 'Prod'
@@ -73,7 +182,7 @@ Resources:
         schemes:
         - "https"
         securityDefinitions:
-          cognitoUserPool:
+          fhir-service-auth:
             type: apiKey
             name: "Authorization"
             in: header
@@ -83,10 +192,8 @@ Resources:
               providerARNs:
                 - !GetAtt UserPool.Arn
         paths:
-          /Patient:
-            post:
-              consumes:
-              - "application/json+fhir"
+          /bundle:
+            x-amazon-apigateway-any-method:
               produces:
               - "application/json+fhir"
               responses:
@@ -94,11 +201,10 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              security:
-              - cognitoUserPool: []                    
+              #security:
+              #- fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
-                
                 responses:
                   default:
                     statusCode: "200"
@@ -106,8 +212,7 @@ Resources:
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
                 type: "aws_proxy"
-                
-          /Patient/{proxy+}:
+          /bundle/{proxy+}:
             x-amazon-apigateway-any-method:
               produces:
               - "application/json+fhir"
@@ -117,7 +222,8 @@ Resources:
                 required: true
                 type: "string"
               responses: {}
-                
+              #security:
+              #- fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -125,16 +231,104 @@ Resources:
                     statusCode: "200"
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
-                cacheNamespace: "s32dgy"
+                cacheNamespace: "cxnb8k"
                 cacheKeyParameters:
                 - "method.request.path.proxy"
                 contentHandling: "CONVERT_TO_TEXT"
                 type: "aws_proxy"
+          /observation:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+              - fhir-service-auth: []
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+          /observation/{proxy+}:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              parameters:
+              - name: "proxy"
+                in: "path"
+                required: true
+                type: "string"
+              responses: {}
+              security:
+              - fhir-service-auth: []
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                cacheNamespace: "do4k3j"
+                cacheKeyParameters:
+                - "method.request.path.proxy"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+          /patient:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              #security:
+              #- fhir-service-auth: []
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+          /patient/{proxy+}:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              parameters:
+              - name: "proxy"
+                in: "path"
+                required: true
+                type: "string"
+              responses: {}
+              #security:
+              #- fhir-service-auth: []
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                cacheNamespace: "1q8fa9"
+                cacheKeyParameters:
+                - "method.request.path.proxy"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+
         definitions:
           Empty:
             type: "object"
             title: "Empty Schema"
-        
 
   FHIRFunction:
     Type: AWS::Serverless::Function
@@ -144,44 +338,105 @@ Resources:
       AutoPublishAlias: !Ref LambdaAlias
       Runtime: java8
       MemorySize: 512
-      Timeout: 20
+      Timeout: 300
 
       Policies:
         Statement:
+          -  Effect: "Allow"
+             Action:
+               - "s3:PutObject"
+             Resource:
+               Fn::Join:
+                 - ""
+                 - - "arn:aws:s3:::"
+                   - Ref: FHIRInstanceBucket
+                   - "/*"
           - Effect: Allow
             Action:
               - dynamodb:GetItem
-              - dynamodb:Query 
+              - dynamodb:Query
               - dynamodb:Scan
+              - dynamodb:PutItem
+              - s3:PutObject
             Resource:
-              - !Sub 
+
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}/index/gender-createdDate-index'
+                - { Table: !Ref FHIRPatientTable }
+              - !Sub
                 - 'arn:aws:dynamodb:*:*:table/${Table}'
                 - { Table: !Ref FHIRPatientTable }
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}'
+                - { Table: !Ref FHIRObservationTable }
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}/index/patientRefId-index'
+                - { Table: !Ref FHIRObservationTable }
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}'
+                - { Table: !Ref FHIRBundleTable }
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}'
+                - { Table: !Ref FHIRResourceMetaTable }
+
+              # - !Sub
+              #  - 'arn:aws:dynamodb:*:*:table/${Table}'
+              #  - { Table: !Ref FHIRResourceMetaTable }
+              # - { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "FHIRInstanceBucket" } ]]}
+
           - Effect: Allow
             Action:
               - logs:*
             Resource:
               - "*"
-           
+
       Environment:
         Variables:
           FHIR_PATIENT_TABLE: !Ref FHIRPatientTable
+          FHIR_RESOURCE_META_TABLE: !Ref FHIRResourceMetaTable
+          FHIR_BUNDLE_TABLE: !Ref FHIRBundleTable
+          FHIR_INSTANCE_BUCKET: !Ref FHIRInstanceBucket
+          FHIR_OBSERVATION_TABLE: !Ref FHIRObservationTable
+
+          VALIDATE_FHIR_RESOURCE: false
       Events:
-        ProxyOrdersResource:
+        ProxyPatientsResource:
           Type: Api
           Properties:
-            RestApiId: !Ref FHIRPatientServiceApi
-            Path: /Patient
+            RestApiId: !Ref FHIRServiceApi
+            Path: /patient
             Method: ANY
-        ProxyOrderGreedyResource:
+        ProxyPatientGreedyResource:
           Type: Api
           Properties:
-            RestApiId: !Ref FHIRPatientServiceApi
-            Path: /Patient/{proxy+}
+            RestApiId: !Ref FHIRServiceApi
+            Path: /patient/{proxy+}
             Method: ANY
-
-
+        ProxyBundleResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /bundle
+            Method: ANY
+        ProxyBundleGreedyResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /bundle/{proxy+}
+            Method: ANY
+        ProxyObservationResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /observation
+            Method: ANY
+        ProxyObservationGreedyResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /observation/{proxy+}
+            Method: ANY
 Outputs:
   ApiUrl:
     Description: URL for application
-    Value: !Sub 'https://${FHIRPatientServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
+    Value: !Sub 'https://${FHIRServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
