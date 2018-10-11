@@ -51,9 +51,8 @@ Resources:
               AttributeName: "createdDate"
               KeyType: "RANGE"
           Projection:
-            NonKeyAttributes:
-              - "ALL"
-            ProjectionType: "INCLUDE"
+
+            ProjectionType: "ALL"
           ProvisionedThroughput:
             ReadCapacityUnits: "5"
             WriteCapacityUnits: "5"
@@ -84,9 +83,8 @@ Resources:
               KeyType: "HASH"
 
           Projection:
-            NonKeyAttributes:
-              - "ALL"
-            ProjectionType: "INCLUDE"
+
+            ProjectionType: "ALL"
           ProvisionedThroughput:
             ReadCapacityUnits: "5"
             WriteCapacityUnits: "5"
@@ -204,8 +202,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              security:
-              - fhir-service-auth: []
+              #security:
+              #- fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -292,8 +290,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              security:
-              - fhir-service-auth: []
+              #security:
+              #- fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:

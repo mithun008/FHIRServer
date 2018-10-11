@@ -168,8 +168,10 @@ public class PatientResource {
 			while (iter.hasNext()) {
 				BundleEntryComponent comp = new BundleEntryComponent();
 				Item item = iter.next();
-				String obsJSON = item.toJSON();
-				Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+				String patJSON = item.toJSON();
+				log.debug("The patient json :"+patJSON);
+				//Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+				Patient patient = FhirContext.forDstu3().newJsonParser().parseResource(Patient.class, patJSON);
 				String obsId = item.getString("id");
 			    log.debug("The patient id : "+item.getString("id"));
 			    

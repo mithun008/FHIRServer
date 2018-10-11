@@ -16,16 +16,7 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-dynamodb</artifactId>
 			<version>1.11.360</version>
-			<exclusions>
-				<exclusion>
-					<artifactId>apache-client</artifactId>
-					<groupId>com.amazonaws</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>netty-nio-client</artifactId>
-					<groupId>com.amazonaws</groupId>
-				</exclusion>				
-			</exclusions>
+
 		</dependency>
 		
 		<dependency>
@@ -33,13 +24,13 @@
 			<artifactId>aws-java-sdk-cognitoidp</artifactId>
 			<version>1.11.360</version>
 		</dependency>	
-		<!-- 
+		<!--   
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-core</artifactId>
 			<version>1.11.360</version>
 		</dependency>	
-		-->		
+		-->
 		<dependency>
 			<groupId>org.glassfish.jersey.media</groupId>
 			<artifactId>jersey-media-json-jackson</artifactId>

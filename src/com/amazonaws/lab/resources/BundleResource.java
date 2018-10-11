@@ -216,6 +216,7 @@ public class BundleResource {
 
 		// Make sure your object includes the hash or hash/range key
 		String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(bundle);
+		
 
 		// Convert the JSON into an object
 		Item myItem = Item.fromJSON(myJsonString);
