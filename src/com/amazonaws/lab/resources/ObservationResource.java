@@ -99,7 +99,7 @@ public class ObservationResource {
 			BundleEntryComponent comp = new BundleEntryComponent();
 			Item item = iter.next();
 			String obsJSON = item.toJSON();
-			Observation obs = LambdaHandler.getJsonParser().parseResource(Observation.class, obsJSON);
+			Observation obs = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Observation.class, obsJSON);
 			String obsId = item.getString("id");
 		    log.debug("The observation id : "+item.getString("id"));
 		    
@@ -112,7 +112,7 @@ public class ObservationResource {
 		bundle.setEntry(entryList);
 		bundle.setTotal(resultCount);
 		
-		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
+		return Response.status(200).entity(LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(bundle)).build();
 	}
 
 	/**
@@ -121,7 +121,7 @@ public class ObservationResource {
 	 * @return The id of the Observation created
 	 */
 	
-	public String createObservation(Observation observation) {
+	public String createObservation(Observation observation,String userId) {
 		//log.debug("Executing Observation create.. ");
 		log.trace("The security context object.." + securityContext);
 		log.trace("The patient reference .. "+observation.getSubject().getReference());
@@ -137,10 +137,11 @@ public class ObservationResource {
 		Table myTable = dynamodb.getTable(OBSERVATION_TABLE);
 
 		// Make sure your object includes the hash or hash/range key
-		String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(observation);
+		String myJsonString = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(observation);
 
 		// Convert the JSON into an object
 		Item myItem = Item.fromJSON(myJsonString);
+		myItem.withString("userid", userId);
 		
 		myItem.withString("patientRefId",observation.getSubject().getReference());
 

@@ -47,6 +47,7 @@ import org.hl7.fhir.dstu3.model.Patient;
 
 
 import com.amazonaws.lab.LambdaHandler;
+import com.amazonaws.serverless.proxy.internal.jaxrs.AwsProxySecurityContext.CognitoUserPoolPrincipal;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.document.AttributeUpdate;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
@@ -171,7 +172,7 @@ public class PatientResource {
 				String patJSON = item.toJSON();
 				log.debug("The patient json :"+patJSON);
 				//Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
-				Patient patient = FhirContext.forDstu3().newJsonParser().parseResource(Patient.class, patJSON);
+				Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patJSON);
 				String obsId = item.getString("id");
 			    log.debug("The patient id : "+item.getString("id"));
 			    
@@ -184,7 +185,7 @@ public class PatientResource {
 			bundle.setEntry(entryList);
 			bundle.setTotal(resultCount);
 		}	
-		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
+		return Response.status(200).entity(LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(bundle)).build();
 	}
 
 
@@ -237,7 +238,7 @@ public class PatientResource {
 		
 		while(iter.hasNext()) {
 			BundleEntryComponent comp = new BundleEntryComponent();
-			Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class,iter.next().toJSONPretty());
+			Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class,iter.next().toJSONPretty());
 			comp.setResource(patient);
 			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+patient.getId());
 			log.debug("The item data "+ patient.getId());
@@ -247,7 +248,7 @@ public class PatientResource {
 		bundle.setEntry(entryList);
 		bundle.setTotal(resultCount);
 
-		return Response.status(200).entity(LambdaHandler.getJsonParser().encodeResourceToString(bundle)).build();
+		return Response.status(200).entity(LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(bundle)).build();
 	}
 
 
@@ -293,7 +294,10 @@ public class PatientResource {
 		}
 		
 		log.debug("The json string retrieved : " + respMsg);
-
+		if(respCode != 404) {
+			Patient pat = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, respMsg);
+			respMsg = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(pat);
+		}
 		return Response.status(respCode).entity(respMsg).build();
 
 	}
@@ -346,9 +350,14 @@ public class PatientResource {
 				return Response.status(Response.Status.BAD_REQUEST).build();
 			}
 		}
-		Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, patientBlob);
-		// Patient patient = new Patient();
-		String id = this.createPatient(patient);
+		Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patientBlob);
+		
+		CognitoUserPoolPrincipal cognitoPrin = 
+				securityContext.getUserPrincipal()!=null?(CognitoUserPoolPrincipal)securityContext.getUserPrincipal():null;
+		String userId = 
+				cognitoPrin!=null?cognitoPrin.getClaims().getUsername():null;
+		
+		String id = this.createPatient(patient,userId!=null?userId:"Unknown");
 
 		//load attachment to S3
 		
@@ -402,7 +411,7 @@ public class PatientResource {
 		System.out.println("End of function from system out....");
 
 		return Response.status(Response.Status.CREATED).entity(LambdaHandler
-				.getJsonParser()
+				.getFHIRContext().newJsonParser()
 				.encodeResourceToString(opOutCome)).build();
 	}
 	
@@ -413,7 +422,7 @@ public class PatientResource {
 	 * @return
 	 */
 	
-	public String createPatient(Patient patient) {
+	public String createPatient(Patient patient, String userId) {
 		log.debug("Executing patient create.. ");
 		//log.debug("The security context object.." + securityContext);
 
@@ -436,7 +445,7 @@ public class PatientResource {
 		Table myTable = dynamodb.getTable(PATIENT_TABLE);
 
 		// Make sure your object includes the hash or hash/range key
-		String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(patient);
+		String myJsonString = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(patient);
 		
 		log.debug("The patient id : "+patient.getId()+ " JSON String "+myJsonString);
 
@@ -447,6 +456,8 @@ public class PatientResource {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		myItem.withString("createdDate", sdf.format(new Date()));
 		
+		//add the user id to the record
+		myItem.withString("userid", userId);
 
 		// Insert the Object
 		myTable.putItem(myItem);
@@ -484,7 +495,7 @@ public class PatientResource {
 			log.debug("The id received is :" + id);
 			log.debug("Before Validation started ..");
 
-			Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class,patientBlob);
+			Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class,patientBlob);
 			DynamoDB dynamodb = new DynamoDB(LambdaHandler.getDDBClient());
 			Table myTable = dynamodb.getTable(PATIENT_TABLE);
 			KeyAttribute key = new KeyAttribute("id", id);
@@ -504,7 +515,7 @@ public class PatientResource {
 			}
 			patient.setId(id);
 			// Make sure your object includes the hash or hash/range key
-			String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(patient);
+			String myJsonString = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(patient);
 
 			// Convert the JSON into an object
 			Item myItem = Item.fromJSON(myJsonString);
@@ -528,7 +539,7 @@ public class PatientResource {
 		
 		String bundleBlob = this.getFile("Doretha289_Bayer639_4480d762-f8c4-4691-bbe9-3dabe66496eb.json");
 				
-		Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
+		Bundle bundle = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Bundle.class, bundleBlob);
 		
 		List<BundleEntryComponent> list = bundle.getEntry();
 		

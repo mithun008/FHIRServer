@@ -34,6 +34,7 @@ import org.hl7.fhir.dstu3.model.Patient;
 import org.hl7.fhir.dstu3.model.Reference;
 
 import com.amazonaws.lab.LambdaHandler;
+import com.amazonaws.serverless.proxy.internal.jaxrs.AwsProxySecurityContext.CognitoUserPoolPrincipal;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
@@ -82,8 +83,12 @@ public class BundleResource {
 	public Response pOSTBundle(@Context SecurityContext securityContext, String bundleBlob) {
 		OperationOutcome opOutCome = null;
 		
-			
-		log.debug("Before Validation started ..");
+		CognitoUserPoolPrincipal cognitoPrin = 
+				securityContext.getUserPrincipal()!=null?(CognitoUserPoolPrincipal)securityContext.getUserPrincipal():null;
+		String userId = 
+				cognitoPrin!=null?cognitoPrin.getClaims().getUsername():null;
+		
+		log.debug("Before Validation started .."+userId);
 		//ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
 		if(VALIDATE_FHIR_RESOURCE.equals("true")) {
 			ValidationResult result = LambdaHandler.getFHIRValidator().validateWithResult(bundleBlob);
@@ -96,9 +101,9 @@ public class BundleResource {
 				return Response.status(Response.Status.BAD_REQUEST).build();
 			}
 		}
-		Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
+		Bundle bundle = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Bundle.class, bundleBlob);
 		
-		String id = this.createBundle(bundle);
+		String id = this.createBundle(bundle,userId!=null?userId:"Unknown");
 		
 		List<BundleEntryComponent> list = bundle.getEntry();
 		String patientId = null;
@@ -113,7 +118,7 @@ public class BundleResource {
 				patientFullUrl = entry.getFullUrl();
 				log.debug("The patient name "+patient.getName());
 				PatientResource patResource = new PatientResource();
-				patientId = patResource.createPatient(patient);
+				patientId = patResource.createPatient(patient,userId!=null?userId:"Unknown");
 				
 			}else if(fhirType.equals(ResourceType.OBSERVATION.getDisplay())){
 				Observation obs = (Observation)entry.getResource();
@@ -126,7 +131,7 @@ public class BundleResource {
 				obs.setSubject(ref);
 				log.trace("The patient reference id "+obs.getSubject().getReference());
 				ObservationResource obsResource = new ObservationResource();
-				obsResource.createObservation(obs);
+				obsResource.createObservation(obs,userId!=null?userId:"Unknown");
 			}
 			
 		}
@@ -183,7 +188,7 @@ public class BundleResource {
 		System.out.println("End of function from system out....");
 
 		return Response.status(Response.Status.CREATED).entity(LambdaHandler
-				.getJsonParser()
+				.getFHIRContext().newJsonParser()
 				.encodeResourceToString(opOutCome)).build();
 	}
 
@@ -195,7 +200,7 @@ public class BundleResource {
 	 * @return
 	 */
 	
-	public String createBundle(Bundle bundle) {
+	public String createBundle(Bundle bundle,String userId) {
 		log.debug("Executing bundle create.. ");
 		log.debug("The security context object.." + securityContext);
 
@@ -215,14 +220,17 @@ public class BundleResource {
 		Table myTable = dynamodb.getTable(BUNDLE_TABLE);
 
 		// Make sure your object includes the hash or hash/range key
-		String myJsonString = LambdaHandler.getJsonParser().encodeResourceToString(bundle);
+		String myJsonString = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(bundle);
 		
 
 		// Convert the JSON into an object
 		Item myItem = Item.fromJSON(myJsonString);
 
+		//add user id
+		myItem.withString("userid", userId);
 		// Insert the Object
 		myTable.putItem(myItem);
+		
 		return id;
 	}
 
@@ -232,7 +240,7 @@ public class BundleResource {
 		
 		String bundleBlob = this.getFile("Doretha289_Bayer639_4480d762-f8c4-4691-bbe9-3dabe66496eb.json");
 				
-		Bundle bundle = LambdaHandler.getJsonParser().parseResource(Bundle.class, bundleBlob);
+		Bundle bundle = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Bundle.class, bundleBlob);
 		
 		List<BundleEntryComponent> list = bundle.getEntry();
 		

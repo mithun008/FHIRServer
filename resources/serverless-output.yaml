@@ -7,6 +7,12 @@ Outputs:
     Description: URL for application
     Value:
       Fn::Sub: https://${FHIRServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
+  FHIRInstanceBucket:
+    Description: FHIR Instance bucket
+    Value:
+      Fn::GetAtt:
+      - FHIRInstanceBucket
+      - Arn
 Parameters:
   LambdaAlias:
     Default: live
@@ -39,7 +45,7 @@ Resources:
     Properties:
       AutoPublishAlias:
         Ref: LambdaAlias
-      CodeUri: s3://fhir-code-bucket/4b58bef8d8149dbed3ac314657814285
+      CodeUri: s3://fhir-code-bucket/323356f370fefb480356a80245ba0c46
       Environment:
         Variables:
           FHIR_BUNDLE_TABLE:
@@ -102,6 +108,7 @@ Resources:
         Statement:
         - Action:
           - s3:PutObject
+          - s3:GetObject
           Effect: Allow
           Resource:
             Fn::Join:
@@ -150,6 +157,7 @@ Resources:
       Timeout: 300
     Type: AWS::Serverless::Function
   FHIRInstanceBucket:
+    DeletionPolicy: Retain
     Properties:
       VersioningConfiguration:
         Status: Enabled
@@ -184,9 +192,7 @@ Resources:
         - AttributeName: patientRefId
           KeyType: HASH
         Projection:
-          NonKeyAttributes:
-          - ALL
-          ProjectionType: INCLUDE
+          ProjectionType: ALL
         ProvisionedThroughput:
           ReadCapacityUnits: '5'
           WriteCapacityUnits: '5'
@@ -216,9 +222,7 @@ Resources:
         - AttributeName: createdDate
           KeyType: RANGE
         Projection:
-          NonKeyAttributes:
-          - ALL
-          ProjectionType: INCLUDE
+          ProjectionType: ALL
         ProvisionedThroughput:
           ReadCapacityUnits: '5'
           WriteCapacityUnits: '5'
@@ -285,6 +289,8 @@ Resources:
               produces:
               - application/json+fhir
               responses: {}
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 cacheKeyParameters:
                 - method.request.path.proxy
@@ -373,6 +379,8 @@ Resources:
               produces:
               - application/json+fhir
               responses: {}
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 cacheKeyParameters:
                 - method.request.path.proxy

@@ -26,8 +26,8 @@ import ca.uhn.fhir.validation.FhirValidator;
 
 /**
  * This is the main Lambda handler class. It implements the RequestStreamHandler interface from the lambda-core package (see
- * maven dependencies). The only method defined by the RequestStreamHandler interface is the handleRequest method implemented 
- * on line 37.
+ * maven dependencies). The only method defined by the RequestStreamHandler interface is the handleRequest method implemented.
+ * 
  */
 public class LambdaHandler implements RequestStreamHandler {
     // initialize the jersey application. Load the resource classes from the com.amazonaws.lab.resources
@@ -52,7 +52,9 @@ public class LambdaHandler implements RequestStreamHandler {
     
     private static FhirValidator fhirValidator = FhirContext.forDstu3().newValidator();
     
-    private static IParser jsonParser = FhirContext.forDstu3().newJsonParser();
+    
+    
+    private static FhirContext fhirContext = FhirContext.forDstu3();
     
     private static DynamoDB dyanmoDB = null;
 
@@ -65,6 +67,9 @@ public class LambdaHandler implements RequestStreamHandler {
 
         // just in case it wasn't closed by the mapper
         outputStream.close();
+    }
+    public static FhirContext getFHIRContext() {
+    	return fhirContext;
     }
     public static AmazonDynamoDB getDDBClient() {
     	
@@ -80,9 +85,7 @@ public class LambdaHandler implements RequestStreamHandler {
     	return fhirValidator;
     }
     
-    public static IParser getJsonParser() {
-    	return jsonParser;
-    }
+
     
     public static DynamoDB getDynamoDB() {
     	if(dyanmoDB == null) {
@@ -92,16 +95,4 @@ public class LambdaHandler implements RequestStreamHandler {
     	
     }
 
-    /*
-    // This function can start the local server to test the API
-    public static void main(String[] args) throws IOException {
-        ddbClient.setRegion(Region.getRegion(Regions.US_EAST_2));
-        ResourceConfig jerseyApplication = new ResourceConfig()
-                .packages("com.amazonaws.lab.resources")
-                .register(JacksonFeature.class);
-
-        HttpServer server = GrizzlyHttpServerFactory.createHttpServer(UriBuilder.fromUri("http://localhost/").port(3000).build(), jerseyApplication);
-        server.start();
-    }
-    */
 }
