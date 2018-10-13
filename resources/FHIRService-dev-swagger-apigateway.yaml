@@ -193,6 +193,24 @@ Resources:
               providerARNs:
                 - !GetAtt UserPool.Arn
         paths:
+          /_meta:
+            get:
+              produces:
+              - "application/json+fhir"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
           /bundle:
             x-amazon-apigateway-any-method:
               produces:
@@ -402,6 +420,12 @@ Resources:
 
           VALIDATE_FHIR_RESOURCE: false
       Events:
+        ProxyMetaResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /_meta
+            Method: GET        
         ProxyPatientsResource:
           Type: Api
           Properties:

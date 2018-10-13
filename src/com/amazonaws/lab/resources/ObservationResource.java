@@ -16,10 +16,10 @@ import javax.ws.rs.core.SecurityContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hl7.fhir.dstu3.model.Bundle;
-import org.hl7.fhir.dstu3.model.Observation;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.dstu3.model.Bundle.BundleLinkComponent;
 import org.hl7.fhir.dstu3.model.Bundle.BundleType;
+import org.hl7.fhir.dstu3.model.Observation;
 
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
@@ -32,11 +32,13 @@ import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.document.utils.NameMap;
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
+import ca.uhn.fhir.rest.server.IResourceProvider;
+
 @Path("/observation")
 
 @io.swagger.annotations.Api(description = "the Observation API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
-public class ObservationResource {
+public class ObservationResource implements IResourceProvider{
 	@Context
 	SecurityContext securityContext;
 
@@ -149,5 +151,9 @@ public class ObservationResource {
 		myTable.putItem(myItem);
 		return id;
 	}
+	
+    public Class<Observation> getResourceType() {
+        return Observation.class;
+    }
 	
 }

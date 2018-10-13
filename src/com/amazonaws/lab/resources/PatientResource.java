@@ -45,7 +45,6 @@ import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.OperationOutcome.OperationOutcomeIssueComponent;
 import org.hl7.fhir.dstu3.model.Patient;
 
-
 import com.amazonaws.lab.LambdaHandler;
 import com.amazonaws.serverless.proxy.internal.jaxrs.AwsProxySecurityContext.CognitoUserPoolPrincipal;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
@@ -76,11 +75,13 @@ import io.swagger.annotations.ApiParam;
 
 @io.swagger.annotations.Api(description = "the Patient API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
-public class PatientResource {
+public class PatientResource  {
 	@Context
 	SecurityContext securityContext;
-
 	
+	private static final String SERVER_VERSION = "1.0.0";
+	private static final String SERVER_DESCRIPTION = "Jax-Rs Test Example Description";
+	private static final String SERVER_NAME = "Jax-Rs Test Example";
 
 	static final Logger log = LogManager.getLogger(PatientResource.class);
 
@@ -93,8 +94,10 @@ public class PatientResource {
 	
 
 	public PatientResource() {
-	
+		//super(FhirContext.forDstu3(), SERVER_DESCRIPTION, SERVER_NAME, SERVER_VERSION);
 	}
+	
+
 
 	@DELETE
 	@Path("/{id}")
@@ -119,6 +122,7 @@ public class PatientResource {
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Get Patient", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
+	
 	public Response gETPatient(@Context SecurityContext securityContext,
 			@DefaultValue("F") @QueryParam("gender") String gender,
 			@DefaultValue("30") @QueryParam("date-range-days") String dateRangeDays)  {
@@ -197,6 +201,7 @@ public class PatientResource {
 	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
+	
 	public Response gETPatientSearch(
 			@DefaultValue("") @QueryParam("gender") String gender,
 			@DefaultValue("") @QueryParam("birthDate") String birthDate,
@@ -265,7 +270,8 @@ public class PatientResource {
 			@io.swagger.annotations.ApiResponse(code = 410, message = "Tried to get a deleted resource ", response = Void.class),
 
 			@io.swagger.annotations.ApiResponse(code = 422, message = "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail. ", response = Void.class) })
-
+	
+	
 	public Response gETPatientid(@Context SecurityContext securityContext,
 			@ApiParam(value = "", required = true) @PathParam("id") String id, @HeaderParam("Accept") String accepted) {
 
@@ -301,6 +307,7 @@ public class PatientResource {
 		return Response.status(respCode).entity(respMsg).build();
 
 	}
+	
 
 
 
@@ -330,7 +337,7 @@ public class PatientResource {
 			@io.swagger.annotations.ApiResponse(code = 400, message = "Bad Request - Resource cound not be parsed or failed basic FHIR validation rules ", response = Void.class),
 
 			@io.swagger.annotations.ApiResponse(code = 404, message = "Not Found - resource type not support, or not a FHIR validation rules ", response = Void.class) })
-
+	
 	public Response pOSTPatient(@Context SecurityContext securityContext, String patientBlob)  {
 		OperationOutcome opOutCome = null;
 		
@@ -488,6 +495,7 @@ public class PatientResource {
 
 			@io.swagger.annotations.ApiResponse(code = 422, message = "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail. ", response = Void.class) })
 	
+
 	public Response pUTPatientid(@ApiParam(value = "", required = true) @PathParam("id") String id,
 			@Context SecurityContext securityContext,
 			String patientBlob) {
@@ -584,9 +592,9 @@ public class PatientResource {
 		return result.toString();
 
 	}
-	
 
-
+  
+    
 	public static void main(String[] args) {
 		AmazonDynamoDB client = LambdaHandler.getDDBClient();
 		DynamoDB db = new DynamoDB(client);

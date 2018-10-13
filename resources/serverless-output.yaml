@@ -45,7 +45,7 @@ Resources:
     Properties:
       AutoPublishAlias:
         Ref: LambdaAlias
-      CodeUri: s3://fhir-code-bucket/323356f370fefb480356a80245ba0c46
+      CodeUri: s3://fhir-code-bucket/44acee194e67c89c09d8411ded3fca90
       Environment:
         Variables:
           FHIR_BUNDLE_TABLE:
@@ -71,6 +71,13 @@ Resources:
           Properties:
             Method: ANY
             Path: /bundle
+            RestApiId:
+              Ref: FHIRServiceApi
+          Type: Api
+        ProxyMetaResource:
+          Properties:
+            Method: GET
+            Path: /_meta
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
@@ -260,6 +267,25 @@ Resources:
           title:
             Ref: AWS::StackName
         paths:
+          /_meta:
+            get:
+              produces:
+              - application/json+fhir
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              x-amazon-apigateway-integration:
+                contentHandling: CONVERT_TO_TEXT
+                httpMethod: POST
+                passthroughBehavior: when_no_match
+                responses:
+                  default:
+                    statusCode: '200'
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
           /bundle:
             x-amazon-apigateway-any-method:
               produces:

@@ -3,12 +3,15 @@ package com.amazonaws.lab.resources;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 import java.util.UUID;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -18,6 +21,7 @@ import javax.ws.rs.core.SecurityContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hl7.fhir.dstu3.hapi.rest.server.ServerCapabilityStatementProvider;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.dstu3.model.Enumerations.ResourceType;
@@ -44,6 +48,8 @@ import com.amazonaws.services.s3.AmazonS3;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.StrictErrorHandler;
+import ca.uhn.fhir.rest.server.IResourceProvider;
+import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.validation.FhirValidator;
 import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
@@ -52,7 +58,7 @@ import ca.uhn.fhir.validation.ValidationResult;
 
 @io.swagger.annotations.Api(description = "the Bundle API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
-public class BundleResource {
+public class BundleResource implements IResourceProvider {
 	@Context
 	SecurityContext securityContext;
 
@@ -286,6 +292,10 @@ public class BundleResource {
 
 	}
 	
+    public Class<Bundle> getResourceType() {
+        return Bundle.class;
+    }
+
 
 
 	public static void main(String[] args) {

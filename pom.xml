@@ -50,19 +50,25 @@
 		</dependency>
 
 		<!-- This dependency includes the core HAPI-FHIR classes -->
-
+		
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-base</artifactId>
-			<version>3.2.0</version>
+			<version>3.5.0</version>
 		</dependency>
-
+		<!-- 
+		<dependency>
+			<groupId>ca.uhn.hapi.fhir</groupId>
+			<artifactId>hapi-fhir-jaxrsserver-base</artifactId>
+			<version>3.5.0</version>
+		</dependency>
+		-->
 		<!-- At least one "structures" JAR must also be included -->
 
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-dstu3</artifactId>
-			<version>3.4.0</version>
+			<version>3.5.0</version>
 		</dependency>
 		
 		<!-- FHIR validation resources for HAPI FHIR -->
@@ -70,10 +76,16 @@
 		<dependency>
 		    <groupId>ca.uhn.hapi.fhir</groupId>
 		    <artifactId>hapi-fhir-validation-resources-dstu3</artifactId>
-		    <version>3.4.0</version>
+		    <version>3.5.0</version>
+		</dependency>
+		
+		<!-- https://mvnrepository.com/artifact/ca.uhn.hapi.fhir/restful-server-example -->
+		<dependency>
+		    <groupId>ca.uhn.hapi.fhir</groupId>
+		    <artifactId>hapi-fhir-server</artifactId>
+		    <version>3.5.0</version>
 		</dependency>		
-		
-		
+				
 		<dependency>
 			<groupId>io.swagger</groupId>
 			<artifactId>swagger-jersey2-jaxrs</artifactId>
