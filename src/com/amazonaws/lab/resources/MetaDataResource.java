@@ -21,7 +21,7 @@ import com.amazonaws.lab.LambdaHandler;
 import ca.uhn.fhir.rest.server.HardcodedServerAddressStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 
-@Path("/_meta")
+@Path("/metadata")
 
 @io.swagger.annotations.Api(description = "the Patient API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
@@ -32,7 +32,7 @@ public class MetaDataResource {
 	
 	@GET
 
-	@Produces({ "application/json+fhir" })
+	@Produces({ "application/fhir+json" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Get Capability statement", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })

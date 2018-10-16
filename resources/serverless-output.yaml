@@ -45,9 +45,10 @@ Resources:
     Properties:
       AutoPublishAlias:
         Ref: LambdaAlias
-      CodeUri: s3://fhir-code-bucket/44acee194e67c89c09d8411ded3fca90
+      CodeUri: s3://fhir-code-bucket/118bded2d88082d511b8a99a10d0e42a
       Environment:
         Variables:
+          COGNITO_ENABLED: false
           FHIR_BUNDLE_TABLE:
             Ref: FHIRBundleTable
           FHIR_INSTANCE_BUCKET:
@@ -63,49 +64,49 @@ Resources:
         ProxyBundleGreedyResource:
           Properties:
             Method: ANY
-            Path: /bundle/{proxy+}
+            Path: /Bundle/{proxy+}
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
         ProxyBundleResource:
           Properties:
             Method: ANY
-            Path: /bundle
+            Path: /Bundle
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
         ProxyMetaResource:
           Properties:
             Method: GET
-            Path: /_meta
+            Path: /metadata
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
         ProxyObservationGreedyResource:
           Properties:
             Method: ANY
-            Path: /observation/{proxy+}
+            Path: /Observation/{proxy+}
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
         ProxyObservationResource:
           Properties:
             Method: ANY
-            Path: /observation
+            Path: /Observation
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
         ProxyPatientGreedyResource:
           Properties:
             Method: ANY
-            Path: /patient/{proxy+}
+            Path: /Patient/{proxy+}
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
         ProxyPatientsResource:
           Properties:
             Method: ANY
-            Path: /patient
+            Path: /Patient
             RestApiId:
               Ref: FHIRServiceApi
           Type: Api
@@ -267,26 +268,7 @@ Resources:
           title:
             Ref: AWS::StackName
         paths:
-          /_meta:
-            get:
-              produces:
-              - application/json+fhir
-              responses:
-                '200':
-                  description: 200 response
-                  schema:
-                    $ref: '#/definitions/Empty'
-              x-amazon-apigateway-integration:
-                contentHandling: CONVERT_TO_TEXT
-                httpMethod: POST
-                passthroughBehavior: when_no_match
-                responses:
-                  default:
-                    statusCode: '200'
-                type: aws_proxy
-                uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
-          /bundle:
+          /Bundle:
             x-amazon-apigateway-any-method:
               produces:
               - application/json+fhir
@@ -305,7 +287,7 @@ Resources:
                 type: aws_proxy
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
-          /bundle/{proxy+}:
+          /Bundle/{proxy+}:
             x-amazon-apigateway-any-method:
               parameters:
               - in: path
@@ -315,8 +297,6 @@ Resources:
               produces:
               - application/json+fhir
               responses: {}
-              security:
-              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 cacheKeyParameters:
                 - method.request.path.proxy
@@ -330,7 +310,7 @@ Resources:
                 type: aws_proxy
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
-          /observation:
+          /Observation:
             x-amazon-apigateway-any-method:
               produces:
               - application/json+fhir
@@ -339,8 +319,6 @@ Resources:
                   description: 200 response
                   schema:
                     $ref: '#/definitions/Empty'
-              security:
-              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 contentHandling: CONVERT_TO_TEXT
                 httpMethod: POST
@@ -351,7 +329,7 @@ Resources:
                 type: aws_proxy
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
-          /observation/{proxy+}:
+          /Observation/{proxy+}:
             x-amazon-apigateway-any-method:
               parameters:
               - in: path
@@ -361,8 +339,6 @@ Resources:
               produces:
               - application/json+fhir
               responses: {}
-              security:
-              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 cacheKeyParameters:
                 - method.request.path.proxy
@@ -376,7 +352,7 @@ Resources:
                 type: aws_proxy
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
-          /patient:
+          /Patient:
             x-amazon-apigateway-any-method:
               produces:
               - application/json+fhir
@@ -395,7 +371,7 @@ Resources:
                 type: aws_proxy
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
-          /patient/{proxy+}:
+          /Patient/{proxy+}:
             x-amazon-apigateway-any-method:
               parameters:
               - in: path
@@ -405,12 +381,29 @@ Resources:
               produces:
               - application/json+fhir
               responses: {}
-              security:
-              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 cacheKeyParameters:
                 - method.request.path.proxy
                 cacheNamespace: 1q8fa9
+                contentHandling: CONVERT_TO_TEXT
+                httpMethod: POST
+                passthroughBehavior: when_no_match
+                responses:
+                  default:
+                    statusCode: '200'
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations
+          /metadata:
+            get:
+              produces:
+              - application/json+fhir
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              x-amazon-apigateway-integration:
                 contentHandling: CONVERT_TO_TEXT
                 httpMethod: POST
                 passthroughBehavior: when_no_match

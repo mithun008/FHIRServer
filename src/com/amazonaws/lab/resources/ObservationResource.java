@@ -34,7 +34,7 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
 import ca.uhn.fhir.rest.server.IResourceProvider;
 
-@Path("/observation")
+@Path("/Observation")
 
 @io.swagger.annotations.Api(description = "the Observation API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
@@ -59,7 +59,7 @@ public class ObservationResource implements IResourceProvider{
 
 
 	@GET
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Get Observation for a patient", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })

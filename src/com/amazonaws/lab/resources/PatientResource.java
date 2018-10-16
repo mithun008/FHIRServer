@@ -71,7 +71,7 @@ import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
 import io.swagger.annotations.ApiParam;
 
-@Path("/patient")
+@Path("/Patient")
 
 @io.swagger.annotations.Api(description = "the Patient API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
@@ -79,9 +79,7 @@ public class PatientResource  {
 	@Context
 	SecurityContext securityContext;
 	
-	private static final String SERVER_VERSION = "1.0.0";
-	private static final String SERVER_DESCRIPTION = "Jax-Rs Test Example Description";
-	private static final String SERVER_NAME = "Jax-Rs Test Example";
+	
 
 	static final Logger log = LogManager.getLogger(PatientResource.class);
 
@@ -92,7 +90,8 @@ public class PatientResource  {
 	//private static final String PATIENT_NAME_TABLE = System.getenv("PATIENT_NAME_TABLE");
 	//private static final String PATIENT_CONTACT_INFO_TABLE = System.getenv("PATIENT_CONTACT_INFO_TABLE");
 	
-
+	private static final String COGNITO_ENABLED = System.getenv("COGNITO_ENABLED");
+	
 	public PatientResource() {
 		//super(FhirContext.forDstu3(), SERVER_DESCRIPTION, SERVER_NAME, SERVER_VERSION);
 	}
@@ -102,7 +101,7 @@ public class PatientResource  {
 	@DELETE
 	@Path("/{id}")
 
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Delete resource ", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 204, message = "Succesfully deleted resource ", response = Void.class),
@@ -118,13 +117,13 @@ public class PatientResource  {
 
 	@GET
 	
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Get Patient", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
 	
 	public Response gETPatient(@Context SecurityContext securityContext,
-			@DefaultValue("F") @QueryParam("gender") String gender,
+			@DefaultValue("ALL") @QueryParam("gender") String gender,
 			@DefaultValue("30") @QueryParam("date-range-days") String dateRangeDays)  {
 		
 		
@@ -150,45 +149,113 @@ public class PatientResource  {
 		Table table = dynamoDB.getTable(PATIENT_TABLE);
 		
 		Index index = table.getIndex("gender-createdDate-index");
-		
-		LocalDate now = LocalDate.now();
-		LocalDate pastDate = now.minusDays( Integer.parseInt(dateRangeDays) );
-		RangeKeyCondition rangeKeyCond = new RangeKeyCondition("createdDate").ge(pastDate.toString());
-		KeyAttribute key = new KeyAttribute("gender", gender.equals("F")?"female":"male");
 		log.debug("The key attribute value "+gender);
-		
-		
-		log.debug("The last date : "+pastDate);
-		QuerySpec spec = new QuerySpec()
-			.withHashKey(key)
-		    //.withKeyConditionExpression("gender = :v_gender")
-		    .withRangeKeyCondition(rangeKeyCond);
-
-		        
 		int resultCount = 0;
-		ItemCollection<QueryOutcome> items = index.query(spec);
-		log.debug("The items received : "+items);
-		if(items != null) {
-			Iterator<Item> iter = items.iterator(); 
-			while (iter.hasNext()) {
-				BundleEntryComponent comp = new BundleEntryComponent();
-				Item item = iter.next();
-				String patJSON = item.toJSON();
-				log.debug("The patient json :"+patJSON);
-				//Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
-				Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patJSON);
-				String obsId = item.getString("id");
-			    log.debug("The patient id : "+item.getString("id"));
-			    
-				comp.setResource(patient);
-				comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
-				
-				entryList.add(comp);
-				resultCount++;
+		if(gender.equals("ALL")) {
+			LocalDate now = LocalDate.now();
+			LocalDate pastDate = now.minusDays( Integer.parseInt(dateRangeDays) );
+			RangeKeyCondition rangeKeyCond = new RangeKeyCondition("createdDate").ge(pastDate.toString());
+			//search for female patients
+			KeyAttribute key = new KeyAttribute("gender", "female");
+			
+			log.debug("The last date : "+pastDate);
+			QuerySpec spec = new QuerySpec()
+				.withHashKey(key)
+			    //.withKeyConditionExpression("gender = :v_gender")
+			    .withRangeKeyCondition(rangeKeyCond);
+			
+			ItemCollection<QueryOutcome> itemsFemale = index.query(spec);
+			log.debug("The items received : "+itemsFemale);
+			
+			
+			if(itemsFemale != null) {
+				Iterator<Item> iter = itemsFemale.iterator(); 
+				while (iter.hasNext()) {
+					BundleEntryComponent comp = new BundleEntryComponent();
+					Item item = iter.next();
+					String patJSON = item.toJSON();
+					log.debug("The patient json :"+patJSON);
+					//Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+					Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patJSON);
+					String obsId = item.getString("id");
+				    log.debug("The patient id : "+item.getString("id"));
+				    
+					comp.setResource(patient);
+					comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
+					
+					entryList.add(comp);
+					resultCount++;
+				}
 			}
-			bundle.setEntry(entryList);
-			bundle.setTotal(resultCount);
-		}	
+			//search for male patients
+			key = new KeyAttribute("gender", "male");
+			spec = new QuerySpec()
+				.withHashKey(key)
+			    //.withKeyConditionExpression("gender = :v_gender")
+			    .withRangeKeyCondition(rangeKeyCond);
+			
+			ItemCollection<QueryOutcome> itemsMale = index.query(spec);
+			log.debug("The items received : "+itemsMale);
+			if(itemsMale != null) {
+				Iterator<Item> iter = itemsMale.iterator(); 
+				while (iter.hasNext()) {
+					BundleEntryComponent comp = new BundleEntryComponent();
+					Item item = iter.next();
+					String patJSON = item.toJSON();
+					log.debug("The patient json :"+patJSON);
+					//Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+					Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patJSON);
+					String obsId = item.getString("id");
+				    log.debug("The patient id : "+item.getString("id"));
+				    
+					comp.setResource(patient);
+					comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
+					
+					entryList.add(comp);
+					resultCount++;
+				}
+			}
+			
+		}else {
+			LocalDate now = LocalDate.now();
+			LocalDate pastDate = now.minusDays( Integer.parseInt(dateRangeDays) );
+			RangeKeyCondition rangeKeyCond = new RangeKeyCondition("createdDate").ge(pastDate.toString());
+			KeyAttribute key = new KeyAttribute("gender", gender.equals("F")?"female":"male");
+			log.debug("The key attribute value "+gender);
+			
+			
+			log.debug("The last date : "+pastDate);
+			QuerySpec spec = new QuerySpec()
+				.withHashKey(key)
+			    //.withKeyConditionExpression("gender = :v_gender")
+			    .withRangeKeyCondition(rangeKeyCond);
+			
+			ItemCollection<QueryOutcome> items = index.query(spec);
+			log.debug("The items received : "+items);
+	
+			if(items != null) {
+				Iterator<Item> iter = items.iterator(); 
+				while (iter.hasNext()) {
+					BundleEntryComponent comp = new BundleEntryComponent();
+					Item item = iter.next();
+					String patJSON = item.toJSON();
+					log.debug("The patient json :"+patJSON);
+					//Patient patient = LambdaHandler.getJsonParser().parseResource(Patient.class, obsJSON);
+					Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patJSON);
+					String obsId = item.getString("id");
+				    log.debug("The patient id : "+item.getString("id"));
+				    
+					comp.setResource(patient);
+					comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+obsId);
+					
+					entryList.add(comp);
+					resultCount++;
+				}
+				
+			}	
+		}
+		bundle.setEntry(entryList);
+		bundle.setTotal(resultCount);
 		return Response.status(200).entity(LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(bundle)).build();
 	}
 
@@ -197,7 +264,7 @@ public class PatientResource  {
 	@GET
 	@Path("/_search")
 
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
@@ -260,7 +327,7 @@ public class PatientResource  {
 
 	@GET
 	@Path("/{id}")
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class),
@@ -328,8 +395,8 @@ public class PatientResource  {
 
 	@POST
 
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Consumes({ "application/fhir+json", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Create a new type ", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 201, message = "Succesfully created a new type ", response = Void.class),
@@ -358,12 +425,13 @@ public class PatientResource  {
 			}
 		}
 		Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, patientBlob);
-		
-		CognitoUserPoolPrincipal cognitoPrin = 
-				securityContext.getUserPrincipal()!=null?(CognitoUserPoolPrincipal)securityContext.getUserPrincipal():null;
-		String userId = 
-				cognitoPrin!=null?cognitoPrin.getClaims().getUsername():null;
-		
+		String userId = null;
+		if(COGNITO_ENABLED.equals("true")) {
+			CognitoUserPoolPrincipal cognitoPrin = 
+					securityContext.getUserPrincipal()!=null?(CognitoUserPoolPrincipal)securityContext.getUserPrincipal():null;
+			userId = 
+					cognitoPrin!=null?cognitoPrin.getClaims().getUsername():null;
+		}
 		String id = this.createPatient(patient,userId!=null?userId:"Unknown");
 
 		//load attachment to S3
@@ -475,8 +543,8 @@ public class PatientResource  {
 
 	@PUT
 	@Path("/{id}")
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Consumes({ "application/fhir+json", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Update an existing instance ", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Succesfully updated the instance  ", response = Void.class),

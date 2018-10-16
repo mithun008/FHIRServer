@@ -54,7 +54,7 @@ import ca.uhn.fhir.validation.FhirValidator;
 import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
 
-@Path("/bundle")
+@Path("/Bundle")
 
 @io.swagger.annotations.Api(description = "the Bundle API")
 @javax.annotation.Generated(value = "io.swagger.codegen.languages.JavaJerseyServerCodegen", date = "2018-07-17T16:45:16.134-07:00")
@@ -73,11 +73,12 @@ public class BundleResource implements IResourceProvider {
 	private static final String BUNDLE_TABLE = System.getenv("FHIR_BUNDLE_TABLE");
 
 	private static final String VALIDATE_FHIR_RESOURCE = System.getenv("VALIDATE_FHIR_RESOURCE");
+	private static final String COGNITO_ENABLED = System.getenv("COGNITO_ENABLED");
 
 	@POST
 
-	@Consumes({ "application/json+fhir", "application/xml+fhir" })
-	@Produces({ "application/json+fhir", "application/xml+fhir" })
+	@Consumes({ "application/fhir+json", "application/xml+fhir" })
+	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Create a new type ", response = Void.class, tags = {})
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 201, message = "Succesfully created a new type ", response = Void.class),
@@ -87,12 +88,15 @@ public class BundleResource implements IResourceProvider {
 			@io.swagger.annotations.ApiResponse(code = 404, message = "Not Found - resource type not support, or not a FHIR validation rules ", response = Void.class) })
 
 	public Response pOSTBundle(@Context SecurityContext securityContext, String bundleBlob) {
+		String userId = null;
 		OperationOutcome opOutCome = null;
 		
-		CognitoUserPoolPrincipal cognitoPrin = 
-				securityContext.getUserPrincipal()!=null?(CognitoUserPoolPrincipal)securityContext.getUserPrincipal():null;
-		String userId = 
-				cognitoPrin!=null?cognitoPrin.getClaims().getUsername():null;
+		if(COGNITO_ENABLED.equals("true")) {
+			CognitoUserPoolPrincipal cognitoPrin = 
+					securityContext.getUserPrincipal()!=null?(CognitoUserPoolPrincipal)securityContext.getUserPrincipal():null;
+			userId = 
+					cognitoPrin!=null?cognitoPrin.getClaims().getUsername():null;
+		}
 		
 		log.debug("Before Validation started .."+userId);
 		//ValidationResult result = FhirContext.forDstu3().newValidator().validateWithResult(patientBlob);
