@@ -124,7 +124,7 @@ Resources:
 
   UserPool:
     Type: AWS::Cognito::UserPool
-    #DeletionPolicy: Retain
+   
     Properties:
       AutoVerifiedAttributes:
         - email
@@ -138,7 +138,7 @@ Resources:
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
-    #DeletionPolicy: Retain
+    
     Properties:
       ClientName: !Sub '${AWS::StackName}-UserPool'
       GenerateSecret: false
@@ -149,8 +149,6 @@ Resources:
   # S3 Bucket to store the actual payload as a file.
   FHIRInstanceBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    #AccessControl: Private
     Properties:
       VersioningConfiguration:
         Status: Enabled
@@ -220,8 +218,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -241,8 +239,8 @@ Resources:
                 required: true
                 type: "string"
               responses: {}
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -264,8 +262,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -285,8 +283,8 @@ Resources:
                 required: true
                 type: "string"
               responses: {}
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -308,8 +306,8 @@ Resources:
                   description: "200 response"
                   schema:
                     $ref: "#/definitions/Empty"
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -329,8 +327,8 @@ Resources:
                 required: true
                 type: "string"
               responses: {}
-              #security:
-              #- fhir-service-auth: []
+              security:
+              - fhir-service-auth: []
               x-amazon-apigateway-integration:
                 uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
                 responses:
@@ -419,7 +417,7 @@ Resources:
           FHIR_OBSERVATION_TABLE: !Ref FHIRObservationTable
 
           VALIDATE_FHIR_RESOURCE: false
-          COGNITO_ENABLED: false
+          COGNITO_ENABLED: true
       Events:
         ProxyMetaResource:
           Type: Api
