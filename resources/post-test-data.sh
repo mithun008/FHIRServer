@@ -1,6 +1,6 @@
-for entry in "."/*.json
+for entry in "./test-data"/*.json
 do
   # include the cognito id token and make the endpoint as a parameter
-  curl -H "Content-Type: application/json+fhir" -i --data "@$entry" https://ihy1s1l9jl.execute-api.us-west-2.amazonaws.com/dev/bundle
+  curl -H "Content-Type: application/fhir+json" -H "Authorization: <<IDToken>>" -i --data "@$entry" https://<<FHIR Service url>>/Prod/Bundle
   echo "$entry"
 done
