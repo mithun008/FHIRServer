@@ -149,6 +149,7 @@ Resources:
   # S3 Bucket to store the actual payload as a file.
   FHIRInstanceBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
     Properties:
       VersioningConfiguration:
         Status: Enabled
