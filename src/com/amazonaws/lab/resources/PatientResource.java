@@ -332,11 +332,7 @@ public class PatientResource  {
 	@io.swagger.annotations.ApiResponses(value = {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class),
 
-			@io.swagger.annotations.ApiResponse(code = 404, message = "Tried to get an unknown resource ", response = Void.class),
-
-			@io.swagger.annotations.ApiResponse(code = 410, message = "Tried to get a deleted resource ", response = Void.class),
-
-			@io.swagger.annotations.ApiResponse(code = 422, message = "Unprocessable Entity - the proposed resource violated applicable FHIR  profiles or server business rules.  This should be accompanied by an OperationOutcome resource providing additional detail. ", response = Void.class) })
+			@io.swagger.annotations.ApiResponse(code = 404, message = "Tried to get an unknown resource ", response = Void.class) })
 	
 	
 	public Response gETPatientid(@Context SecurityContext securityContext,

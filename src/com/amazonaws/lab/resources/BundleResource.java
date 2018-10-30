@@ -116,10 +116,12 @@ public class BundleResource implements IResourceProvider {
 		String id = this.createBundle(bundle,userId!=null?userId:"Unknown");
 		
 		List<BundleEntryComponent> list = bundle.getEntry();
+		
 		String patientId = null;
 		//Patient patient = null;
 		String patientFullUrl = null;
 		for(BundleEntryComponent entry : list) {
+			
 			String fhirType = entry.getResource().fhirType();
 			//System.out.println(entry.getResource().fhirType());
 			
