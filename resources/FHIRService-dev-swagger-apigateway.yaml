@@ -357,7 +357,8 @@ Resources:
       Runtime: java8
       MemorySize: 512
       Timeout: 300
-
+      Tracing: Active
+        
       Policies:
         Statement:
           -  Effect: "Allow"
