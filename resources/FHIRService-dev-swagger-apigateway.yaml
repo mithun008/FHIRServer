@@ -124,7 +124,7 @@ Resources:
 
   UserPool:
     Type: AWS::Cognito::UserPool
-   
+
     Properties:
       AutoVerifiedAttributes:
         - email
@@ -138,13 +138,14 @@ Resources:
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
-    
+
     Properties:
       ClientName: !Sub '${AWS::StackName}-UserPool'
       GenerateSecret: false
       UserPoolId: !Ref UserPool
       ExplicitAuthFlows:
         - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
 
   # S3 Bucket to store the actual payload as a file.
   FHIRInstanceBucket:
@@ -358,7 +359,7 @@ Resources:
       MemorySize: 512
       Timeout: 300
       Tracing: Active
-        
+
       Policies:
         Statement:
           -  Effect: "Allow"
