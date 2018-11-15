@@ -1,0 +1,7 @@
+1. aws cloudformation package --template-file FHIRService-dev-swagger-apigateway.yaml --output-template-file serverless-output.yaml --s3-bucket <<Replace the S3 bucket name>>
+
+2. aws cloudformation deploy --template-file /home/ec2-user/environment/FHIRServer/resources/serverless-output.yaml --stack-name <<Enter Stack Name>> --capabilities CAPABILITY_IAM
+
+3. aws cognito-idp admin-initiate-auth --user-pool-id <<user-pool-id>> --client-id <<app-client-id>> --auth-flow ADMIN_NO_SRP_AUTH --auth-parameters 'USERNAME=<<username>>,PASSWORD='<<Temp password>>''
+
+4. aws cognito-idp admin-respond-to-auth-challenge --user-pool-id <<user-pool-id>> --client-id <<app-client-id>> --challenge-name NEW_PASSWORD_REQUIRED --challenge-response 'USERNAME=<<userid>>,NEW_PASSWORD=<<new password>>' --session '<<session tag value>>'
