@@ -121,6 +121,38 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+  FHIRConditionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${AWS::StackName}_FHIRCondition
+      AttributeDefinitions:
+
+        - AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "patientRefId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        -
+          IndexName: "patientRefId-index"
+          KeySchema:
+            -
+              AttributeName: "patientRefId"
+              KeyType: "HASH"
+
+          Projection:
+
+            ProjectionType: "ALL"
+          ProvisionedThroughput:
+            ReadCapacityUnits: "5"
+            WriteCapacityUnits: "5"
 
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -343,7 +375,50 @@ Resources:
                 - "method.request.path.proxy"
                 contentHandling: "CONVERT_TO_TEXT"
                 type: "aws_proxy"
-
+          /Condition:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+              - fhir-service-auth: []
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+          /Condition/{proxy+}:
+            x-amazon-apigateway-any-method:
+              produces:
+              - "application/json+fhir"
+              parameters:
+              - name: "proxy"
+                in: "path"
+                required: true
+                type: "string"
+              responses: {}
+              security:
+              - fhir-service-auth: []
+              x-amazon-apigateway-integration:
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FHIRFunction}:${LambdaAlias}/invocations'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                cacheNamespace: "do4k3j"
+                cacheKeyParameters:
+                - "method.request.path.proxy"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
         definitions:
           Empty:
             type: "object"
@@ -399,7 +474,12 @@ Resources:
               - !Sub
                 - 'arn:aws:dynamodb:*:*:table/${Table}'
                 - { Table: !Ref FHIRResourceMetaTable }
-
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}'
+                - { Table: !Ref FHIRConditionTable }
+              - !Sub
+                - 'arn:aws:dynamodb:*:*:table/${Table}/index/patientRefId-index'
+                - { Table: !Ref FHIRConditionTable }
               # - !Sub
               #  - 'arn:aws:dynamodb:*:*:table/${Table}'
               #  - { Table: !Ref FHIRResourceMetaTable }
@@ -418,6 +498,7 @@ Resources:
           FHIR_BUNDLE_TABLE: !Ref FHIRBundleTable
           FHIR_INSTANCE_BUCKET: !Ref FHIRInstanceBucket
           FHIR_OBSERVATION_TABLE: !Ref FHIRObservationTable
+          FHIR_CONDITION_TABLE: !Ref FHIRConditionTable
 
           VALIDATE_FHIR_RESOURCE: false
           COGNITO_ENABLED: true
@@ -463,6 +544,18 @@ Resources:
           Properties:
             RestApiId: !Ref FHIRServiceApi
             Path: /Observation/{proxy+}
+            Method: ANY
+        ProxyConditionResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /Condition
+            Method: ANY
+        ProxyConditionGreedyResource:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FHIRServiceApi
+            Path: /Condition/{proxy+}
             Method: ANY
 Outputs:
   FHIRInstanceBucket:

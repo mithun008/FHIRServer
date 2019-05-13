@@ -6,6 +6,7 @@ import javax.ws.rs.core.SecurityContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hl7.fhir.dstu3.model.Bundle;
+import org.hl7.fhir.dstu3.model.Condition;
 import org.hl7.fhir.dstu3.model.IdType;
 import org.hl7.fhir.dstu3.model.Observation;
 import org.hl7.fhir.dstu3.model.Patient;
@@ -81,4 +82,10 @@ public class CapabilityStatementResource{
 		//dummy methods
 		return new Bundle();
 	}
+	
+	@Search(type=Condition.class)
+	public Bundle searchCondition() {
+		//dummy methods
+		return new Bundle();
+	}	
 }

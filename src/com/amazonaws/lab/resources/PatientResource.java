@@ -273,18 +273,38 @@ public class PatientResource  {
 			@DefaultValue("") @QueryParam("gender") String gender,
 			@DefaultValue("") @QueryParam("birthDate") String birthDate,
 			@DefaultValue("") @QueryParam("address-city") String addressCity,
+			@DefaultValue("") @QueryParam("firstName") String firstName,
+			@DefaultValue("") @QueryParam("lastName") String lastName,
+			@DefaultValue("") @QueryParam("MRN") String mrnVal,
 			@Context SecurityContext securityContext) {
 		
 		Bundle bundle = new Bundle();
 	
-		log.debug("Entering patient search with query param :"+gender + "-"+ birthDate);
+		log.debug("Entering patient search with query param :"+gender + "-"+ birthDate+"-"+addressCity+"-"+firstName+"-"+lastName+"-"+mrnVal);
 		Table table = LambdaHandler.getDynamoDB().getTable(PATIENT_TABLE);
+	
+		HashMap<String, String> nameMap = new HashMap<String,String>();
+		nameMap.put("#name", "name");
+		nameMap.put("#family", "family");
+		nameMap.put("#type", "type");
+		nameMap.put("#value", "value");
 		ScanSpec spec = new ScanSpec()
-				.withFilterExpression("gender = :v_gender and birthDate = :v_birthDate and address[0].city = :v_addressCity")
+				.withNameMap(nameMap)
+				.withFilterExpression("gender = :v_gender and birthDate = :v_birthDate "
+						+ "and address[0].city = :v_addressCity "
+						+ "and #name[0].#family = :v_lastName "
+						+ "and #name[0].given[0]= :v_firstName "
+						+ "and identifier[1].#type.coding[0].code= :v_mrnCode "
+						+ "and identifier[1].#value = :v_mrnVal")
+				
 				.withValueMap(new ValueMap()
 						.withString(":v_gender", gender)
 						.withString(":v_birthDate", birthDate)
-						.withString(":v_addressCity", addressCity));
+						.withString(":v_addressCity", addressCity)
+						.withString(":v_lastName", lastName)
+						.withString(":v_firstName", firstName)
+						.withString(":v_mrnCode", "MR")
+						.withString(":v_mrnVal", mrnVal));
 
 		
 		ItemCollection<ScanOutcome> items = table.scan(spec);
@@ -370,11 +390,6 @@ public class PatientResource  {
 		return Response.status(respCode).entity(respMsg).build();
 
 	}
-	
-
-
-
-
 
 
 	@GET

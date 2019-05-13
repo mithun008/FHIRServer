@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.hl7.fhir.dstu3.hapi.rest.server.ServerCapabilityStatementProvider;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.dstu3.model.Condition;
 import org.hl7.fhir.dstu3.model.Enumerations.ResourceType;
 import org.hl7.fhir.dstu3.model.HumanName;
 import org.hl7.fhir.dstu3.model.IdType;
@@ -144,6 +145,18 @@ public class BundleResource implements IResourceProvider {
 				log.trace("The patient reference id "+obs.getSubject().getReference());
 				ObservationResource obsResource = new ObservationResource();
 				obsResource.createObservation(obs,userId!=null?userId:"Unknown");
+			}else if(fhirType.equals(ResourceType.CONDITION.getDisplay())){
+				Condition cond = (Condition)entry.getResource();
+				log.trace("The observation resource :"+cond.fhirType());
+				Reference ref = new Reference(patientFullUrl);
+				//assuming the patient comes first so patient would be created
+				ref.setId(UUID.randomUUID().toString());
+				//ref.setReference(patientId);
+				
+				cond.setSubject(ref);
+				log.trace("The patient reference id "+cond.getSubject().getReference());
+				ConditionResource condResource = new ConditionResource();
+				condResource.createCondition(cond,userId!=null?userId:"Unknown");
 			}
 			
 		}
