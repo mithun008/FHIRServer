@@ -16,7 +16,6 @@ import javax.ws.rs.core.SecurityContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hl7.fhir.dstu3.model.Bundle;
-import org.hl7.fhir.dstu3.model.Observation;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.dstu3.model.Bundle.BundleLinkComponent;
 import org.hl7.fhir.dstu3.model.Bundle.BundleType;
@@ -95,11 +94,11 @@ public class ConditionResource {
 			BundleEntryComponent comp = new BundleEntryComponent();
 			Item item = iter.next();
 			String obsJSON = item.toJSON();
-			Observation obs = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Observation.class, obsJSON);
+			Condition cond = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Condition.class, obsJSON);
 			String condId = item.getString("id");
 		    log.debug("The condition id : "+item.getString("id"));
 		    
-			comp.setResource(obs);
+			comp.setResource(cond);
 			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Condition/"+condId);
 			
 			entryList.add(comp);
