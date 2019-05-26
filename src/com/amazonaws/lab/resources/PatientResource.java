@@ -330,10 +330,14 @@ public class PatientResource  {
 		
 		while(iter.hasNext()) {
 			BundleEntryComponent comp = new BundleEntryComponent();
-			Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class,iter.next().toJSONPretty());
+			String patJSON = iter.next().toJSON();
+			log.debug("The JSON string : "+patJSON);
+			Patient patient = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class,patJSON);
 			comp.setResource(patient);
-			comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+patient.getId());
-			log.debug("The item data "+ patient.getId());
+			//comp.setFullUrl("http://hapi.fhir.org/baseDstu3/Patient/"+patient.getId());
+			log.debug("The ID element set : "+patient.getIdElement().getIdPart());
+			comp.setFullUrl("urn:uuid:"+patient.getIdElement().getIdPart());
+			//log.debug("The item data "+ patient.getIdElement().getId());
 			entryList.add(comp);
 			resultCount++;
 		}
@@ -385,6 +389,7 @@ public class PatientResource  {
 		log.debug("The json string retrieved : " + respMsg);
 		if(respCode != 404) {
 			Patient pat = LambdaHandler.getFHIRContext().newJsonParser().parseResource(Patient.class, respMsg);
+			
 			respMsg = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(pat);
 		}
 		return Response.status(respCode).entity(respMsg).build();
@@ -522,6 +527,7 @@ public class PatientResource  {
 			id =  UUID.randomUUID().toString();
 			patient.setId(id);
 		}else {
+			log.debug("The id is : "+id.substring(id.indexOf("urn:uuid:")+9));
 			patient.setId(id.substring(id.indexOf("urn:uuid:")+9)); //extracting the guid part
 		}
 		// log.debug("Executing dynamo db..");
