@@ -3,15 +3,12 @@ package com.amazonaws.lab.resources;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 import java.util.UUID;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -21,7 +18,6 @@ import javax.ws.rs.core.SecurityContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hl7.fhir.dstu3.hapi.rest.server.ServerCapabilityStatementProvider;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.dstu3.model.Condition;
@@ -50,7 +46,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.StrictErrorHandler;
 import ca.uhn.fhir.rest.server.IResourceProvider;
-import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.validation.FhirValidator;
 import ca.uhn.fhir.validation.SingleValidationMessage;
 import ca.uhn.fhir.validation.ValidationResult;
@@ -77,7 +72,6 @@ public class BundleResource implements IResourceProvider {
 	private static final String COGNITO_ENABLED = System.getenv("COGNITO_ENABLED");
 
 	@POST
-
 	@Consumes({ "application/fhir+json", "application/xml+fhir" })
 	@Produces({ "application/fhir+json", "application/xml+fhir" })
 	@io.swagger.annotations.ApiOperation(value = "", notes = "Create a new type ", response = Void.class, tags = {})
