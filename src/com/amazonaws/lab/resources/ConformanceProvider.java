@@ -17,5 +17,7 @@ public class ConformanceProvider extends ServerCapabilityStatementProvider {
 
 	public CapabilityStatement getServerConformance(HttpServletRequest theRequest) {
 		return super.getServerConformance(theRequest);
+		
+		
 	}
 }

@@ -68,7 +68,7 @@
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-dstu3</artifactId>
-			<version>3.5.0</version>
+			<version>3.8.0</version>
 		</dependency>
 		
 		<!-- FHIR validation resources for HAPI FHIR -->
@@ -76,14 +76,14 @@
 		<dependency>
 		    <groupId>ca.uhn.hapi.fhir</groupId>
 		    <artifactId>hapi-fhir-validation-resources-dstu3</artifactId>
-		    <version>3.5.0</version>
+		    <version>3.8.0</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/ca.uhn.hapi.fhir/restful-server-example -->
 		<dependency>
 		    <groupId>ca.uhn.hapi.fhir</groupId>
 		    <artifactId>hapi-fhir-server</artifactId>
-		    <version>3.5.0</version>
+		    <version>3.8.0</version>
 		</dependency>		
 				
 		<dependency>

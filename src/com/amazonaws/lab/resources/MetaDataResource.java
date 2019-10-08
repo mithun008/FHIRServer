@@ -18,6 +18,7 @@ import org.hl7.fhir.dstu3.model.CapabilityStatement;
 
 import com.amazonaws.lab.LambdaHandler;
 
+import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.HardcodedServerAddressStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 
@@ -38,37 +39,46 @@ public class MetaDataResource {
 			@io.swagger.annotations.ApiResponse(code = 200, message = "Status 200", response = Void.class) })
 
 	public Response gETCapabilityStatement(@Context HttpServletRequest request, @Context ServletContext serContext)
-			throws ServletException {
-		log.debug("Entering get capability statement..");
-		RestfulServer server = new RestfulServer();
-		List<Object> plainProviders = new ArrayList<Object>();
-		plainProviders.add(new CapabilityStatementResource());
-		// resourceProviders.add(new ObservationResource());
-		// resourceProviders.add(new BundleResource());
-		server.setPlainProviders(plainProviders);
-		server.setImplementationDescription("AWS Serverless FHIR Server");
-		server.setServerName("AWS Server");
-		server.setFhirContext(LambdaHandler.getFHIRContext());
+		{
+	
+			log.debug("Entering get capability statement..");
+			RestfulServer server = new RestfulServer();
+			List<Object> plainProviders = new ArrayList<Object>();
+			plainProviders.add(new CapabilityStatementResource());
+			// resourceProviders.add(new ObservationResource());
+			// resourceProviders.add(new BundleResource());
+			// server.setPlainProviders(plainProviders);
+			server.registerProvider(new CapabilityStatementResource());
+			server.setImplementationDescription("AWS Serverless FHIR Server");
+			server.setServerName("AWS Server");
+			server.setFhirContext(LambdaHandler.getFHIRContext());
+	
+			String serverBaseUrl = "http://foo.com/fhir";
+			server.setServerAddressStrategy(new HardcodedServerAddressStrategy(serverBaseUrl));
+			ConformanceProvider conf = new ConformanceProvider();
+			
+			server.setServerConformanceProvider(conf);
+		
+			try {
+				server.init();
+			} catch (ServletException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
-		String serverBaseUrl = "http://foo.com/fhir";
-		server.setServerAddressStrategy(new HardcodedServerAddressStrategy(serverBaseUrl));
-		ConformanceProvider conf = new ConformanceProvider();
+	
+			CapabilityStatement cap = conf.getServerConformance(request);
+	
+			// server.setFhirContext(LambdaHandler.getFHIRContext());
+			// ServerCapabilityStatementProvider provider=
+			// (ServerCapabilityStatementProvider)server.getServerConformanceProvider();
+			// provider.initializeOperations();
+			String capStmt = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(cap);
+			log.trace("The statement is : " + capStmt );
+			log.debug("The desc is " + cap.getImplementation().getDescription());
 
-		server.setServerConformanceProvider(conf);
-
-		server.init();
-
-		CapabilityStatement cap = conf.getServerConformance(request);
-
-		// server.setFhirContext(LambdaHandler.getFHIRContext());
-		// ServerCapabilityStatementProvider provider=
-		// (ServerCapabilityStatementProvider)server.getServerConformanceProvider();
-		// provider.initializeOperations();
-		String capStmt = LambdaHandler.getFHIRContext().newJsonParser().encodeResourceToString(cap);
-		log.trace("The statement is : " + capStmt );
-		log.debug("The desc is " + cap.getImplementation().getDescription());
-
-
+		
+	
 		return Response.status(Response.Status.OK).entity(capStmt).build();
 	}
 
