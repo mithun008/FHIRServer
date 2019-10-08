@@ -21,7 +21,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.validation.FhirValidator;
 
 /**
@@ -44,6 +43,7 @@ public class LambdaHandler implements RequestStreamHandler {
     // Initialize the serverless-java-container library as a Jersey proxy
     private static final JerseyLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler
             = JerseyLambdaContainerHandler.getAwsProxyHandler(jerseyApplication);
+    
     // singletons for the DDB client and object mapper
     private static AmazonDynamoDB ddbClient = AmazonDynamoDBClientBuilder.defaultClient();
     
@@ -51,7 +51,6 @@ public class LambdaHandler implements RequestStreamHandler {
     private static AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
     
     private static FhirValidator fhirValidator = FhirContext.forDstu3().newValidator();
-    
     
     
     private static FhirContext fhirContext = FhirContext.forDstu3();
