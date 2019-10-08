@@ -169,6 +169,7 @@ public class BundleResource implements IResourceProvider {
 		attValues.put("BucketName",new AttributeValue(FHIR_INSTANCE_BUCKET));
 		attValues.put("Key",new AttributeValue(s3Key));
 		
+		
 		//metaTable.putItem(FHIR_META_TABLE,)
 		AmazonDynamoDB ddbClient = LambdaHandler.getDDBClient();
 		ddbClient.putItem(FHIR_META_TABLE, attValues);
