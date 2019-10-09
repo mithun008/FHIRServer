@@ -35,7 +35,7 @@ response = client.initiate_auth(
 
     ClientId='<<REPLACE_CLIENT_ID>>'
 )
-
+sessionid = response['Session']
 
 response = client.respond_to_auth_challenge(
     ClientId='<<REPLACE_CLIENT_ID>>',
@@ -47,5 +47,5 @@ response = client.respond_to_auth_challenge(
     }
 )
 
-sessionid = response['Session']
+
 print(sessionid)
