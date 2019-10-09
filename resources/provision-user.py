@@ -47,5 +47,17 @@ response = client.respond_to_auth_challenge(
     }
 )
 
+response = client.initiate_auth(
+    AuthFlow='USER_PASSWORD_AUTH',
+    AuthParameters={
+        'USERNAME': 'workshopuser',
+        'PASSWORD': 'Master123!'
+    },
 
+    ClientId='<<REPLACE_CLIENT_ID>>'
+)
+
+#print(response)
+sessionid = response['AuthenticationResult']['IdToken']
 print(sessionid)
+
