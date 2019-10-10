@@ -17,3 +17,5 @@ sudo alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java
 sudo yum remove java-1.7.0-openjdk-devel
 
 sudo yum install jq
+
+python -m pip install --user boto3
