@@ -564,3 +564,9 @@ Outputs:
   ApiUrl:
     Description: URL for application
     Value: !Sub 'https://${FHIRServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
+  UserPoolId:
+    Description: User pool id for the provisioning users.
+    Value: !Ref UserPool
+  UserPoolClient:
+    Description: App client id for the provisioning users.
+    Value: !Ref UserPoolClient
