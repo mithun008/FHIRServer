@@ -563,7 +563,7 @@ Outputs:
     Value: !GetAtt FHIRInstanceBucket.Arn
   ApiUrl:
     Description: URL for application
-    Value: !Sub 'https://${FHIRServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
+    Value: !Sub 'https://${FHIRServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
   UserPoolId:
     Description: User pool id for the provisioning users.
     Value: !Ref UserPool
