@@ -1,4 +1,5 @@
 import boto3
+import sys
 
 client = boto3.client('cognito-idp')
 
@@ -9,7 +10,7 @@ response = client.initiate_auth(
         'PASSWORD': 'Master123!'
     },
 
-    ClientId='<<REPLACE_CLIENT_ID>>'
+    ClientId=sys.argv[1]
 )
 
 sessionid = response['AuthenticationResult']['IdToken']
