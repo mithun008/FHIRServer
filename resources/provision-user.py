@@ -1,9 +1,10 @@
 import boto3
+import sys
 
 client = boto3.client('cognito-idp')
 
 response = client.admin_create_user(
-    UserPoolId='<<REPLACE_POOL_ID>>',
+    UserPoolId=sys.argv[1],
     Username='workshopuser',
     UserAttributes=[
         {
@@ -33,12 +34,12 @@ response = client.initiate_auth(
         'PASSWORD': 'Master123!'
     },
 
-    ClientId='<<REPLACE_CLIENT_ID>>'
+    ClientId=sys.argv[2]
 )
 sessionid = response['Session']
 
 response = client.respond_to_auth_challenge(
-    ClientId='<<REPLACE_CLIENT_ID>>',
+    ClientId=sys.argv[2],
     ChallengeName='NEW_PASSWORD_REQUIRED',
     Session=sessionid,
     ChallengeResponses={
@@ -54,7 +55,7 @@ response = client.initiate_auth(
         'PASSWORD': 'Master123!'
     },
 
-    ClientId='<<REPLACE_CLIENT_ID>>'
+    ClientId=sys.argv[2]
 )
 
 #print(response)
