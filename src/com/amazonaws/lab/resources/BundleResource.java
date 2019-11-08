@@ -83,6 +83,7 @@ public class BundleResource implements IResourceProvider {
 			@io.swagger.annotations.ApiResponse(code = 404, message = "Not Found - resource type not support, or not a FHIR validation rules ", response = Void.class) })
 
 	public Response pOSTBundle(@Context SecurityContext securityContext, String bundleBlob) {
+		log.debug("Entering post bundle...");
 		String userId = null;
 		OperationOutcome opOutCome = null;
 		
