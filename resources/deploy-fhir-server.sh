@@ -31,6 +31,13 @@ ID_TOKEN="$(python provision-user.py "${USER_POOL_ID}" "${CLIENT_ID}")"
 
 curl -H "Accept: application/fhir+json" -H "Authorization:${ID_TOKEN}" ${API_ENDPOINT}Patient | jq
 
+export API_EDNPOINT="${API_ENDPOINT}"
+
+export ID_TOKEN="${ID_TOKEN}"
+
+export USER_POOL_ID="${USER_POOL_ID}"
+
+export  CLIENT_ID="${CLIENT_ID}"
 
 echo "API_EDNPOINT: ${API_ENDPOINT}"
 
@@ -39,3 +46,5 @@ echo "IDToken: ${ID_TOKEN}"
 echo "USER_POOL_ID: ${USER_POOL_ID}"
 
 echo "CLIENT_ID: ${CLIENT_ID}"
+
+source ~/.bashrc 
