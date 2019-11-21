@@ -41,7 +41,7 @@ export  CLIENT_ID="${CLIENT_ID}"
 
 echo "API_EDNPOINT: ${API_ENDPOINT}"
 
-echo "IDToken: ${ID_TOKEN}"
+echo "ID_TOKEN: ${ID_TOKEN}"
 
 echo "USER_POOL_ID: ${USER_POOL_ID}"
 
